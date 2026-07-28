@@ -19,12 +19,14 @@
     <nav class="topbar__nav">
       <a href="{% url 'inicio' %}" class="{% if request.resolver_match.url_name == 'inicio' %}activo{% endif %}">Inicio</a>
       <a href="{% url 'comunicados:lista' %}" class="{% if 'comunicados' in request.resolver_match.namespaces %}activo{% endif %}">Comunicados</a>
+      {% if request.user.is_superuser %}
       <a href="{% url 'directorio:lista' %}" class="{% if 'directorio' in request.resolver_match.namespaces %}activo{% endif %}">Directorio</a>
+      {% endif %}
       <a href="{% url 'rrhh:mi_ficha' %}" class="{% if request.resolver_match.url_name == 'mi_ficha' or request.resolver_match.url_name == 'solicitar_permiso' %}activo{% endif %}">Mi Ficha</a>
       {% if puede_aprobar_solicitudes %}
       <a href="{% url 'rrhh:aprobaciones' %}" class="{% if request.resolver_match.url_name == 'aprobaciones' %}activo{% endif %}">Aprobaciones</a>
       {% endif %}
-      {% if request.user.rol == 'admin' or request.user.is_superuser %}
+      {% if request.user.is_superuser %}
       <a href="{% url 'usuarios:lista' %}" class="{% if 'usuarios' in request.resolver_match.namespaces %}activo{% endif %}">Usuarios</a>
       {% endif %}
     </nav>

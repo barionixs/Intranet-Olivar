@@ -71,27 +71,12 @@
 
 <div class="encabezado-seccion" style="margin-top: 2.5rem;">
   <div>
-    <h2 style="margin: 0;">Cumpleaños de {{ mes_actual_nombre }}</h2>
+    <h2 style="margin: 0;">Noticias y Redes Sociales</h2>
   </div>
 </div>
 
 <div class="tarjeta">
-  {% if cumpleañeros_mes %}
-  <ul class="lista-cumpleanos">
-    {% for persona in cumpleañeros_mes %}
-    <li>
-      <span class="lista-cumpleanos__dia">{{ persona.dia }}</span>
-      <span class="lista-cumpleanos__info">
-        <a href="{% url 'directorio:detalle' persona.pk %}">{{ persona.nombre_completo }}</a>
-        <span class="badge-depto">{{ persona.departamento.nombre }}</span>
-        {% if persona.mostrar_anio %}<span class="meta-archivo">({{ persona.fecha_nacimiento|date:"Y" }})</span>{% endif %}
-      </span>
-      {% if persona.dia == dia_hoy %}<span class="badge-destacado">Hoy</span>{% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="vacio">Nadie cumple años este mes.</p>
-  {% endif %}
+  <script src="https://elfsightcdn.com/platform.js" async></script>
+  <div class="elfsight-app-19dbda05-6e89-440e-acb5-6b2886f8c5fd" data-elfsight-app-lazy></div>
 </div>
 {% endblock %}

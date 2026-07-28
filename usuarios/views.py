@@ -1,5 +1,3 @@
-from datetime import date
-
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import PasswordChangeView
@@ -9,7 +7,6 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, ListView, TemplateView, UpdateView
 
 from comunicados.models import Comunicado
-from directorio.models import MESES_ES, Funcionario
 
 from .forms import UsuarioCreacionForm, UsuarioEdicionForm
 from .models import Usuario
@@ -21,23 +18,15 @@ class InicioView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
         contexto["comunicados_recientes"] = Comunicado.objects.select_related("autor")[:5]
-
-        hoy = date.today()
-        contexto["mes_actual_nombre"] = MESES_ES[hoy.month - 1]
-        contexto["dia_hoy"] = hoy.day
-        cumpleañeros = list(Funcionario.objects.cumpleañeros_del_mes(hoy.month))
-        for persona in cumpleañeros:
-            persona.mostrar_anio = persona.puede_ver_datos_sensibles(self.request.user)
-        contexto["cumpleañeros_mes"] = cumpleañeros
         return contexto
 
 
 class SoloAdminMixin(LoginRequiredMixin, UserPassesTestMixin):
-    """Restringe la vista a usuarios con rol admin (o superusuario de Django)."""
+    """La gestión de usuarios es exclusiva del super admin (superusuario de Django)."""
 
     def test_func(self):
         user = self.request.user
-        return user.is_authenticated and (user.is_superuser or user.rol == Usuario.Rol.ADMIN)
+        return user.is_authenticated and user.is_superuser
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:

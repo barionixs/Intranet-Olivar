@@ -9,7 +9,20 @@ from .forms import FuncionarioEditForm
 from .models import Departamento, Funcionario
 
 
-class DirectorioListView(LoginRequiredMixin, ListView):
+class SoloSuperAdminMixin(LoginRequiredMixin, UserPassesTestMixin):
+    """El directorio completo (listado, ficha y edición) es exclusivo del super admin."""
+
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_superuser
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        messages.error(self.request, "Solo el super admin puede acceder al directorio.")
+        return redirect("inicio")
+
+
+class DirectorioListView(SoloSuperAdminMixin, ListView):
     model = Funcionario
     template_name = "directorio/lista.html"
     context_object_name = "funcionarios"
@@ -37,7 +50,7 @@ class DirectorioListView(LoginRequiredMixin, ListView):
         return contexto
 
 
-class DirectorioDetalleView(LoginRequiredMixin, DetailView):
+class DirectorioDetalleView(SoloSuperAdminMixin, DetailView):
     model = Funcionario
     template_name = "directorio/detalle.html"
     context_object_name = "funcionario"
@@ -49,21 +62,6 @@ class DirectorioDetalleView(LoginRequiredMixin, DetailView):
         contexto = super().get_context_data(**kwargs)
         contexto["puede_ver_sensible"] = self.object.puede_ver_datos_sensibles(self.request.user)
         return contexto
-
-
-class SoloSuperAdminMixin(LoginRequiredMixin, UserPassesTestMixin):
-    """A diferencia de SoloAdminMixin (usuarios app, admite rol=admin),
-    esto exige ser superusuario de Django — editar el directorio queda
-    reservado a la cuenta de super admin, no a cualquier rol admin."""
-
-    def test_func(self):
-        return self.request.user.is_authenticated and self.request.user.is_superuser
-
-    def handle_no_permission(self):
-        if not self.request.user.is_authenticated:
-            return super().handle_no_permission()
-        messages.error(self.request, "Solo el super admin puede editar el directorio.")
-        return redirect("directorio:detalle", pk=self.kwargs["pk"])
 
 
 class FuncionarioUpdateView(SoloSuperAdminMixin, UpdateView):

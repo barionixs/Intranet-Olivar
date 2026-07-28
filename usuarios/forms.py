@@ -40,6 +40,11 @@ class UsuarioCreacionForm(forms.ModelForm):
             "rol": "Rol",
             "is_active": "Cuenta activa",
         }
+        help_texts = {
+            "rol": "Jefatura se asigna sola al poner a la persona como jefe de un "
+            "departamento en Directorio (y se quita sola si deja de serlo). "
+            "Elegirla acá a mano se puede sobrescribir en el próximo cambio de jefatura.",
+        }
 
     def save(self, commit=True):
         usuario = super().save(commit=False)
@@ -68,6 +73,11 @@ class UsuarioEdicionForm(forms.ModelForm):
             "email": "Correo",
             "rol": "Rol",
             "is_active": "Cuenta activa",
+        }
+        help_texts = {
+            "rol": "Jefatura se asigna sola al poner a la persona como jefe de un "
+            "departamento en Directorio (y se quita sola si deja de serlo). "
+            "Elegirla acá a mano se puede sobrescribir en el próximo cambio de jefatura.",
         }
 
     def save(self, commit=True):

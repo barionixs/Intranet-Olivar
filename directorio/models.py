@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models.functions import ExtractDay
 
@@ -16,6 +17,26 @@ class FuncionarioManager(models.Manager):
             .order_by("dia")
             .select_related("departamento")
         )
+
+
+def _sincronizar_rol_jefatura(funcionario_id):
+    """El rol 'jefatura' de Usuario es un espejo de "¿esta persona
+    encabeza al menos un Departamento?" (directorio manda). Sube a
+    jefatura cuando corresponde, y la baja a funcionario cuando deja
+    de encabezar algo — pero nunca toca cuentas admin/rrhh, esas se
+    asignan a mano y son un nivel más alto que jefatura."""
+    if not funcionario_id:
+        return
+    Usuario = get_user_model()
+    funcionario = Funcionario.objects.filter(pk=funcionario_id).select_related("usuario").first()
+    if not funcionario or not funcionario.usuario_id:
+        return
+    rol_actual = funcionario.usuario.rol
+    es_jefe = funcionario.departamentos_a_cargo.exists()
+    if es_jefe and rol_actual == Usuario.Rol.FUNCIONARIO:
+        Usuario.objects.filter(pk=funcionario.usuario_id).update(rol=Usuario.Rol.JEFATURA)
+    elif not es_jefe and rol_actual == Usuario.Rol.JEFATURA:
+        Usuario.objects.filter(pk=funcionario.usuario_id).update(rol=Usuario.Rol.FUNCIONARIO)
 
 
 class Departamento(models.Model):
@@ -45,6 +66,23 @@ class Departamento(models.Model):
 
     def __str__(self):
         return self.nombre
+
+    def save(self, *args, **kwargs):
+        jefe_anterior_id = None
+        if self.pk:
+            jefe_anterior_id = (
+                Departamento.objects.filter(pk=self.pk).values_list("jefe_id", flat=True).first()
+            )
+        super().save(*args, **kwargs)
+        if jefe_anterior_id != self.jefe_id:
+            _sincronizar_rol_jefatura(jefe_anterior_id)
+            _sincronizar_rol_jefatura(self.jefe_id)
+
+    def delete(self, *args, **kwargs):
+        jefe_id = self.jefe_id
+        resultado = super().delete(*args, **kwargs)
+        _sincronizar_rol_jefatura(jefe_id)
+        return resultado
 
 
 class Funcionario(models.Model):
@@ -80,6 +118,16 @@ class Funcionario(models.Model):
 
     def __str__(self):
         return self.nombre_completo
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.usuario_id:
+            partes = self.nombre_completo.split()
+            get_user_model().objects.filter(pk=self.usuario_id).update(
+                first_name=partes[0] if partes else "",
+                last_name=" ".join(partes[1:]),
+                email=self.email,
+            )
 
     def puede_ver_datos_sensibles(self, user):
         """RUT y fecha de nacimiento completa: solo RRHH, admin o la
