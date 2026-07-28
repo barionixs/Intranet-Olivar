@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 
@@ -5,8 +7,18 @@ from .models import Usuario
 
 
 class LoginForm(AuthenticationForm):
-    username = forms.CharField(label="RUT / usuario", widget=forms.TextInput(attrs={"autofocus": True}))
+    username = forms.CharField(
+        label="RUT / usuario",
+        widget=forms.TextInput(attrs={"autofocus": True, "class": "js-rut-input", "autocomplete": "username"}),
+    )
     password = forms.CharField(label="Contraseña", widget=forms.PasswordInput)
+
+    def clean_username(self):
+        # El campo se muestra formateado (20.026.280-8) pero en la BD el
+        # username se guarda sin puntos (20026280-8), así que se limpia
+        # antes de autenticar.
+        valor = self.cleaned_data.get("username", "")
+        return re.sub(r"[.\s]", "", valor).upper()
 
 
 class UsuarioCreacionForm(forms.ModelForm):
