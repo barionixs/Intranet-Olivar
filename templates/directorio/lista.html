@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block titulo %}Directorio{% endblock %}
+
+{% block contenido %}
+<div class="encabezado-seccion">
+  <div>
+    <h1>Directorio de funcionarios</h1>
+    <p>{{ page_obj.paginator.count }} persona{{ page_obj.paginator.count|pluralize }} en la nómina.</p>
+  </div>
+</div>
+
+<form method="get" class="filtros-directorio">
+  <div class="form-grupo">
+    <label for="q">Buscar por nombre o cargo</label>
+    <input type="text" id="q" name="q" value="{{ q }}" placeholder="Ej: Pablo Reyes, Encargado de Informática...">
+  </div>
+  <div class="form-grupo">
+    <label for="departamento">Departamento</label>
+    <select id="departamento" name="departamento">
+      <option value="">Todos</option>
+      {% for depto in departamentos %}
+      <option value="{{ depto.pk }}" {% if departamento_id == depto.pk|stringformat:"s" %}selected{% endif %}>{{ depto.nombre }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</form>
+
+{% if funcionarios %}
+<div class="grilla-directorio">
+  {% for persona in funcionarios %}
+  <a href="{% url 'directorio:detalle' persona.pk %}" class="tarjeta-persona">
+    <h3>{{ persona.nombre_completo }}</h3>
+    <p class="cargo">{{ persona.cargo|default:"Cargo sin registrar" }}</p>
+    <span class="badge-depto">{{ persona.departamento.nombre }}</span>
+  </a>
+  {% endfor %}
+</div>
+
+{% if is_paginated %}
+<div class="acciones-form">
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if departamento_id %}&departamento={{ departamento_id }}{% endif %}" class="btn btn--secundario">← Anterior</a>{% endif %}
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if departamento_id %}&departamento={{ departamento_id }}{% endif %}" class="btn btn--secundario">Siguiente →</a>{% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="vacio">No hay funcionarios que coincidan con la búsqueda.</div>
+{% endif %}
+{% endblock %}

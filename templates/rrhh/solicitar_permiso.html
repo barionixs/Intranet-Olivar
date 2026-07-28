@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block titulo %}Solicitar permiso{% endblock %}
+{% block contenedor_extra_class %} contenedor--angosto{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta">
+  <h1>Solicitar vacaciones o permiso</h1>
+  <p>Tu jefatura directa recibirá esta solicitud para aprobarla o rechazarla.</p>
+
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="form-grupo">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<span class="ayuda">{{ field.help_text }}</span>{% endif %}
+        {% for error in field.errors %}<span class="error">{{ error }}</span>{% endfor %}
+      </div>
+    {% endfor %}
+    {% if form.non_field_errors %}
+      <div class="alerta alerta--error">{{ form.non_field_errors.0 }}</div>
+    {% endif %}
+    <div class="acciones-form">
+      <button type="submit" class="btn btn--primario">Enviar solicitud</button>
+      <a href="{% url 'rrhh:mi_ficha' %}" class="btn btn--secundario">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

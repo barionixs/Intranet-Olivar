@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load static %}
+{% block titulo %}Inicio{% endblock %}
+
+{% block contenido %}
+<div class="encabezado-seccion">
+  <div>
+    <h1>Hola, {{ request.user.get_full_name|default:request.user.username }}</h1>
+    <p>Bienvenido/a a la intranet de la Municipalidad de Olivar.</p>
+  </div>
+</div>
+
+<div class="accesos-rapidos">
+  <a href="{% url 'rrhh:solicitar_permiso' %}" class="acceso-rapido">
+    <span class="acceso-rapido__icono">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4"/><path d="M9.5 12h5M9.5 15.5h5M9.5 8.5h2.5"/></svg>
+    </span>
+    <span class="acceso-rapido__texto">Solicitudes</span>
+  </a>
+
+  <a href="{% url 'rrhh:mi_ficha' %}#vacaciones" class="acceso-rapido">
+    <span class="acceso-rapido__icono">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8" width="17" height="12" rx="2"/><path d="M8 8V6.5A2.5 2.5 0 0 1 10.5 4h3A2.5 2.5 0 0 1 16 6.5V8"/><path d="M3.5 13h17"/></svg>
+    </span>
+    <span class="acceso-rapido__texto">Mis vacaciones</span>
+  </a>
+
+  <a href="{% url 'rrhh:mi_ficha' %}#tramites" class="acceso-rapido">
+    <span class="acceso-rapido__icono">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8A2 2 0 0 1 21 9.5V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+    </span>
+    <span class="acceso-rapido__texto">Mis trámites</span>
+  </a>
+
+  <a href="https://www.muniolivar.cl" target="_blank" rel="noopener" class="acceso-rapido">
+    <span class="acceso-rapido__icono">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V10l8-6 8 6v11"/><path d="M9 21v-6h6v6"/><path d="M4 21h16"/></svg>
+    </span>
+    <span class="acceso-rapido__texto">Mi municipio</span>
+  </a>
+</div>
+
+<div class="encabezado-seccion">
+  <div>
+    <h2 style="margin: 0;">Últimos comunicados</h2>
+  </div>
+  <a href="{% url 'comunicados:lista' %}">Ver todos →</a>
+</div>
+
+{% if comunicados_recientes %}
+<div class="lista-comunicados">
+  {% for comunicado in comunicados_recientes %}
+  <article class="comunicado {% if comunicado.destacado %}comunicado--destacado{% endif %}">
+    <div class="comunicado__encabezado">
+      <h2>{{ comunicado.titulo }}</h2>
+      {% if comunicado.destacado %}<span class="badge-destacado">Destacado</span>{% endif %}
+    </div>
+    <p class="comunicado__meta">{{ comunicado.fecha_publicacion|date:"d/m/Y H:i" }} · {{ comunicado.autor.get_full_name|default:comunicado.autor.username }}</p>
+    <div class="comunicado__cuerpo">{{ comunicado.cuerpo|truncatewords:40 }}</div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="tarjeta">
+  <p>Todavía no hay comunicados publicados.</p>
+  {% if request.user.rol == 'admin' or request.user.is_superuser %}
+    <p><a href="{% url 'usuarios:lista' %}">Ir a Gestión de usuarios →</a></p>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="encabezado-seccion" style="margin-top: 2.5rem;">
+  <div>
+    <h2 style="margin: 0;">Cumpleaños de {{ mes_actual_nombre }}</h2>
+  </div>
+</div>
+
+<div class="tarjeta">
+  {% if cumpleañeros_mes %}
+  <ul class="lista-cumpleanos">
+    {% for persona in cumpleañeros_mes %}
+    <li>
+      <span class="lista-cumpleanos__dia">{{ persona.dia }}</span>
+      <span class="lista-cumpleanos__info">
+        <a href="{% url 'directorio:detalle' persona.pk %}">{{ persona.nombre_completo }}</a>
+        <span class="badge-depto">{{ persona.departamento.nombre }}</span>
+        {% if persona.mostrar_anio %}<span class="meta-archivo">({{ persona.fecha_nacimiento|date:"Y" }})</span>{% endif %}
+      </span>
+      {% if persona.dia == dia_hoy %}<span class="badge-destacado">Hoy</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="vacio">Nadie cumple años este mes.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Intranet{% endblock %} · Municipalidad de Olivar</title>
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+  <div class="franja-marca"></div>
+
+  {% if request.user.is_authenticated %}
+  <header class="topbar">
+    <div class="topbar__marca">
+      <img src="{% static 'img/logo.svg' %}" alt="Municipalidad de Olivar">
+    </div>
+    <nav class="topbar__nav">
+      <a href="{% url 'inicio' %}" class="{% if request.resolver_match.url_name == 'inicio' %}activo{% endif %}">Inicio</a>
+      <a href="{% url 'comunicados:lista' %}" class="{% if 'comunicados' in request.resolver_match.namespaces %}activo{% endif %}">Comunicados</a>
+      <a href="{% url 'directorio:lista' %}" class="{% if 'directorio' in request.resolver_match.namespaces %}activo{% endif %}">Directorio</a>
+      <a href="{% url 'rrhh:mi_ficha' %}" class="{% if request.resolver_match.url_name == 'mi_ficha' or request.resolver_match.url_name == 'solicitar_permiso' %}activo{% endif %}">Mi Ficha</a>
+      {% if puede_aprobar_solicitudes %}
+      <a href="{% url 'rrhh:aprobaciones' %}" class="{% if request.resolver_match.url_name == 'aprobaciones' %}activo{% endif %}">Aprobaciones</a>
+      {% endif %}
+      {% if request.user.rol == 'admin' or request.user.is_superuser %}
+      <a href="{% url 'usuarios:lista' %}" class="{% if 'usuarios' in request.resolver_match.namespaces %}activo{% endif %}">Usuarios</a>
+      {% endif %}
+    </nav>
+    <div class="topbar__usuario">
+      <span>{{ request.user.get_full_name|default:request.user.username }}</span>
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-enlace">Cerrar sesión</button>
+      </form>
+    </div>
+  </header>
+  {% endif %}
+
+  <main class="contenedor{% block contenedor_extra_class %}{% endblock %}">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alerta alerta--{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+    {% block contenido %}{% endblock %}
+  </main>
+</body>
+</html>

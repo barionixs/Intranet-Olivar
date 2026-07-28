@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block titulo %}{% if object %}Editar usuario{% else %}Nuevo usuario{% endif %}{% endblock %}
+{% block contenedor_extra_class %} contenedor--angosto{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta">
+  <h1>{% if object %}Editar a {{ object }}{% else %}Nuevo usuario{% endif %}</h1>
+
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="form-grupo">
+        {% if field.field.widget.input_type == "checkbox" %}
+          <div class="check-linea">
+            {{ field }}
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          </div>
+        {% else %}
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+        {% endif %}
+        {% if field.help_text %}<span class="ayuda">{{ field.help_text }}</span>{% endif %}
+        {% for error in field.errors %}<span class="error">{{ error }}</span>{% endfor %}
+      </div>
+    {% endfor %}
+    <div class="acciones-form">
+      <button type="submit" class="btn btn--primario">Guardar</button>
+      <a href="{% url 'usuarios:lista' %}" class="btn btn--secundario">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

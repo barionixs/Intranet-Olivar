@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block titulo %}{{ funcionario.nombre_completo }}{% endblock %}
+{% block contenedor_extra_class %} contenedor--angosto{% endblock %}
+
+{% block contenido %}
+<p><a href="{% url 'directorio:lista' %}">← Volver al directorio</a></p>
+
+<div class="tarjeta ficha-detalle">
+  <div class="encabezado-seccion" style="margin-bottom: 0;">
+    <div>
+      <h1>{{ funcionario.nombre_completo }}</h1>
+      <p class="cargo">{{ funcionario.cargo|default:"Cargo sin registrar" }} · <span class="badge-depto">{{ funcionario.departamento.nombre }}</span></p>
+    </div>
+    {% if request.user.is_superuser %}
+    <a href="{% url 'directorio:editar' funcionario.pk %}" class="btn btn--secundario">Editar</a>
+    {% endif %}
+  </div>
+
+  <dl>
+    <dt>Correo</dt>
+    <dd>{{ funcionario.email|default:"No registrado" }}</dd>
+
+    <dt>Teléfono</dt>
+    <dd>{{ funcionario.telefono|default:"No registrado" }}</dd>
+
+    <dt>Departamento</dt>
+    <dd>{{ funcionario.departamento.nombre }}</dd>
+
+    {% if puede_ver_sensible %}
+    <dt>RUT</dt>
+    <dd>{{ funcionario.rut }}</dd>
+
+    <dt>Fecha de nacimiento</dt>
+    <dd>{{ funcionario.fecha_nacimiento|date:"d/m/Y" }}</dd>
+    {% else %}
+    <dt>Cumpleaños</dt>
+    <dd>{{ funcionario.fecha_nacimiento|date:"d \d\e F" }}</dd>
+    {% endif %}
+  </dl>
+
+  {% if not puede_ver_sensible %}
+  <p class="nota-privada">El RUT y el año de nacimiento solo son visibles para RRHH, administración o la propia persona.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load static %}
+{% block titulo %}Iniciar sesión{% endblock %}
+{% block contenedor_extra_class %} pagina-login{% endblock %}
+
+{% block contenido %}
+<div class="login-tarjeta">
+  <img src="{% static 'img/logo.svg' %}" alt="Municipalidad de Olivar">
+  <h1>Intranet municipal</h1>
+  <p class="subtitulo">Ingresa con tu RUT y contraseña.</p>
+
+  {% if form.non_field_errors %}
+    <div class="alerta alerta--error">{{ form.non_field_errors.0 }}</div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-grupo">
+      <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+      {{ form.username }}
+    </div>
+    <div class="form-grupo">
+      <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+      {{ form.password }}
+    </div>
+    <button type="submit" class="btn btn--primario">Entrar</button>
+  </form>
+</div>
+{% endblock %}

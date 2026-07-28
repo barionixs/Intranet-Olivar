@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block titulo %}Eliminar comunicado{% endblock %}
+{% block contenedor_extra_class %} contenedor--angosto{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta">
+  <h1>¿Eliminar este comunicado?</h1>
+  <p>Vas a eliminar <strong>{{ object.titulo }}</strong>. Esta acción no se puede deshacer.</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="acciones-form">
+      <button type="submit" class="btn btn--peligro">Sí, eliminar</button>
+      <a href="{% url 'comunicados:lista' %}" class="btn btn--secundario">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block titulo %}Mi Ficha{% endblock %}
+
+{% block contenido %}
+<div class="encabezado-seccion">
+  <div>
+    <h1>Mi Ficha</h1>
+    <p>Tus datos laborales, remuneraciones, vacaciones, licencias y documentos.</p>
+  </div>
+</div>
+
+{% if not funcionario %}
+<div class="tarjeta">
+  <p>Tu cuenta todavía no está vinculada a una ficha de funcionario. Pide a RRHH que la vincule.</p>
+</div>
+{% else %}
+<div class="secciones-ficha">
+
+  <div class="tarjeta">
+    <h2>Ficha laboral</h2>
+    {% if ficha_laboral %}
+    <dl class="ficha-detalle">
+      <dt>Nombre</dt><dd>{{ funcionario.nombre_completo }}</dd>
+      <dt>RUT</dt><dd>{{ funcionario.rut }}</dd>
+      <dt>Cargo</dt><dd>{{ funcionario.cargo|default:"Sin registrar" }}</dd>
+      <dt>Departamento</dt><dd>{{ funcionario.departamento.nombre }}</dd>
+      <dt>Tipo de contrato</dt><dd>{{ ficha_laboral.get_tipo_contrato_display }}</dd>
+      <dt>Fecha de ingreso</dt><dd>{{ ficha_laboral.fecha_ingreso|date:"d/m/Y" }}</dd>
+      <dt>Antigüedad</dt><dd>{{ antiguedad_años }} año{{ antiguedad_años|pluralize }}, {{ antiguedad_meses }} mes{{ antiguedad_meses|pluralize:"es" }}</dd>
+      <dt>Jefatura directa</dt><dd>{{ jefatura|default:"Aún no asignada" }}</dd>
+    </dl>
+    {% else %}
+    <p>RRHH todavía no ha cargado tu ficha laboral (tipo de contrato, fecha de ingreso).</p>
+    {% endif %}
+  </div>
+
+  <div class="tarjeta" id="tramites">
+    <h2>Remuneraciones</h2>
+
+    <p><strong>Liquidaciones de sueldo</strong></p>
+    {% if liquidaciones %}
+    <ul class="lista-archivos">
+      {% for liq in liquidaciones %}
+      <li>
+        <span class="nombre-archivo">{{ liq.get_mes_display }} {{ liq.anio }}</span>
+        <a href="{{ liq.archivo.url }}" class="btn btn--secundario" target="_blank">Descargar</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="nota-privada">RRHH todavía no ha subido liquidaciones.</p>
+    {% endif %}
+
+    <p style="margin-top:1.25rem;"><strong>Certificados de renta</strong></p>
+    {% if certificados_renta %}
+    <ul class="lista-archivos">
+      {% for cert in certificados_renta %}
+      <li>
+        <span class="nombre-archivo">{{ cert.nombre }}</span>
+        <a href="{{ cert.archivo.url }}" class="btn btn--secundario" target="_blank">Descargar</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="nota-privada">Todavía no tienes certificados de renta cargados.</p>
+    {% endif %}
+  </div>
+
+  <div class="tarjeta" id="vacaciones">
+    <h2>Vacaciones y permisos</h2>
+
+    {% if saldo_vacaciones %}
+    <div class="fila-saldo">
+      <div class="metrica">
+        <span class="numero">{{ saldo_vacaciones.saldo }}</span>
+        <span class="etiqueta">Días disponibles</span>
+      </div>
+      <div class="metrica">
+        <span class="numero">{{ saldo_vacaciones.usados }}</span>
+        <span class="etiqueta">Días usados</span>
+      </div>
+      <div class="metrica">
+        <span class="numero">{{ saldo_vacaciones.correspondientes }}</span>
+        <span class="etiqueta">Total correspondiente</span>
+      </div>
+    </div>
+    <p class="nota-privada">Estimación según tu tipo de contrato y antigüedad ({{ saldo_vacaciones.dias_por_año }} días hábiles/año) — confirma el número exacto con RRHH.</p>
+    {% else %}
+    <p class="nota-privada">Aún no se puede estimar tu saldo: falta cargar tu ficha laboral.</p>
+    {% endif %}
+
+    <p style="margin-top:1.25rem;"><a href="{% url 'rrhh:solicitar_permiso' %}" class="btn btn--primario">+ Solicitar vacaciones o permiso</a></p>
+
+    {% if permisos %}
+    <table style="margin-top:1.25rem;">
+      <thead>
+        <tr><th>Tipo</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Estado</th></tr>
+      </thead>
+      <tbody>
+        {% for permiso in permisos %}
+        <tr>
+          <td>{{ permiso.get_tipo_display }}</td>
+          <td>{{ permiso.fecha_inicio|date:"d/m/Y" }}</td>
+          <td>{{ permiso.fecha_termino|date:"d/m/Y" }}</td>
+          <td>{{ permiso.dias_solicitados }}</td>
+          <td><span class="badge-estado badge-estado--{{ permiso.estado }}">{{ permiso.get_estado_display }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="nota-privada" style="margin-top:1rem;">Todavía no tienes solicitudes registradas.</p>
+    {% endif %}
+  </div>
+
+  <div class="tarjeta">
+    <h2>Licencias médicas</h2>
+    {% if licencias %}
+    <table>
+      <thead>
+        <tr><th>Desde</th><th>Hasta</th><th>Días</th><th>Estado</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for licencia in licencias %}
+        <tr>
+          <td>{{ licencia.fecha_inicio|date:"d/m/Y" }}</td>
+          <td>{{ licencia.fecha_termino|date:"d/m/Y" }}</td>
+          <td>{{ licencia.dias }}</td>
+          <td><span class="badge-estado badge-estado--{{ licencia.estado }}">{{ licencia.get_estado_display }}</span></td>
+          <td>{% if licencia.documento %}<a href="{{ licencia.documento.url }}" target="_blank">Ver documento</a>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="nota-privada">No tienes licencias médicas registradas.</p>
+    {% endif %}
+  </div>
+
+  <div class="tarjeta">
+    <h2>Documentos personales</h2>
+    {% if documentos_personales %}
+    <ul class="lista-archivos">
+      {% for doc in documentos_personales %}
+      <li>
+        <span>
+          <span class="nombre-archivo">{{ doc.nombre }}</span>
+          <span class="meta-archivo"> · {{ doc.get_categoria_display }}</span>
+        </span>
+        <a href="{{ doc.archivo.url }}" class="btn btn--secundario" target="_blank">Descargar</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="nota-privada">RRHH todavía no ha subido documentos personales tuyos.</p>
+    {% endif %}
+  </div>
+
+</div>
+{% endif %}
+{% endblock %}

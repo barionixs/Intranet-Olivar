@@ -1,0 +1,771 @@
+/* ============================================================
+   Intranet Municipalidad de Olivar — sistema de diseño
+   Colores extraídos del logo oficial (muniolivar.cl):
+     terracota #D76B53 · oliva #98A437 · café #914640 · café oscuro #521709
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=Pacifico&display=swap');
+
+:root {
+  /* Marca */
+  --terracota: #D76B53;
+  --terracota-oscuro: #B6543E;
+  --oliva: #98A437;
+  --oliva-oscuro: #7C8A2C;
+  --cafe: #914640;
+  --cafe-oscuro: #521709;
+
+  /* Superficie */
+  --fondo: #FAF7F1;
+  --superficie: #FFFFFF;
+  --borde: #E7DFD0;
+  --texto: #3A2E22;
+  --texto-tenue: #7A6C5C;
+
+  /* Estado */
+  --exito: #5C7A2E;
+  --peligro: #B6453A;
+  --peligro-fondo: #FBECEA;
+  --advertencia-fondo: #FBF0DE;
+  --advertencia-texto: #8A5A17;
+
+  --fuente-display: 'Fraunces', Georgia, serif;
+  --fuente-ui: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --radio: 10px;
+  --sombra: 0 1px 2px rgba(58, 46, 34, 0.06), 0 4px 16px rgba(58, 46, 34, 0.06);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: var(--fuente-ui);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+h1, h2, h3, .fuente-display {
+  font-family: var(--fuente-display);
+  font-weight: 600;
+  color: var(--cafe-oscuro);
+  margin: 0 0 0.5rem;
+}
+
+a { color: var(--oliva-oscuro); }
+a:hover { color: var(--terracota-oscuro); }
+
+/* Franja de marca: eco de los 3 gajos del emblema circular */
+.franja-marca {
+  height: 6px;
+  background: linear-gradient(90deg, var(--terracota) 0 33.33%, var(--oliva) 33.33% 66.66%, var(--cafe) 66.66% 100%);
+}
+
+.topbar {
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borde);
+  padding: 0.85rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.topbar__marca {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.topbar__marca img { height: 40px; width: auto; display: block; }
+
+.topbar__nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.topbar__nav a {
+  color: var(--texto);
+  text-decoration: none;
+  padding: 0.35rem 0;
+  border-bottom: 2px solid transparent;
+}
+
+.topbar__nav a:hover,
+.topbar__nav a.activo {
+  color: var(--oliva-oscuro);
+  border-bottom-color: var(--oliva);
+}
+
+.topbar__usuario {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  font-size: 0.9rem;
+  color: var(--texto-tenue);
+}
+
+.topbar__usuario form { margin: 0; }
+
+.btn-enlace {
+  background: none;
+  border: none;
+  color: var(--terracota-oscuro);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.contenedor {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+.contenedor--angosto { max-width: 480px; }
+
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  padding: 1.75rem;
+}
+
+.encabezado-seccion {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.encabezado-seccion p {
+  color: var(--texto-tenue);
+  margin: 0.15rem 0 0;
+}
+
+.badge-rol {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--advertencia-fondo);
+  color: var(--advertencia-texto);
+}
+
+.badge-rol--admin { background: #EFE9F5; color: #5B3E8A; }
+.badge-rol--rrhh { background: #E6EFE0; color: var(--exito); }
+.badge-rol--jefatura { background: #FBECEA; color: var(--peligro); }
+.badge-rol--funcionario { background: #EEF1E1; color: var(--oliva-oscuro); }
+
+table { width: 100%; border-collapse: collapse; }
+
+th, td {
+  text-align: left;
+  padding: 0.7rem 0.6rem;
+  border-bottom: 1px solid var(--borde);
+  font-size: 0.94rem;
+}
+
+th {
+  color: var(--texto-tenue);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+tbody tr:hover { background: #FBF9F4; }
+
+.acciones-fila { display: flex; gap: 0.9rem; white-space: nowrap; }
+.acciones-fila a, .acciones-fila button { font-size: 0.88rem; }
+
+.form-grupo { margin-bottom: 1.15rem; }
+
+.form-grupo label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.88rem;
+  margin-bottom: 0.35rem;
+  color: var(--texto);
+}
+
+.form-grupo .ayuda {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--texto-tenue);
+  margin-top: 0.3rem;
+}
+
+.form-grupo .error {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--peligro);
+  margin-top: 0.3rem;
+}
+
+input[type=text], input[type=email], input[type=password], input[type=date], select, textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.95rem;
+  background: var(--superficie);
+  color: var(--texto);
+}
+
+textarea { resize: vertical; }
+
+input:focus, select:focus, button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--oliva);
+  outline-offset: 1px;
+}
+
+.check-linea { display: flex; align-items: center; gap: 0.55rem; }
+.check-linea input { width: auto; }
+.check-linea label { margin: 0; font-weight: 500; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.3rem;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.05s ease;
+}
+
+.btn:active { transform: translateY(1px); }
+
+.btn--primario { background: var(--oliva); color: #fff; }
+.btn--primario:hover { background: var(--oliva-oscuro); color: #fff; }
+
+.btn--secundario { background: var(--fondo); color: var(--texto); border: 1px solid var(--borde); }
+.btn--secundario:hover { background: #F1ECE0; }
+
+.btn--peligro { background: var(--peligro); color: #fff; }
+.btn--peligro:hover { background: #99392F; }
+
+.acciones-form { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+
+.alerta {
+  border-radius: 8px;
+  padding: 0.85rem 1.05rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.92rem;
+}
+
+.alerta--success { background: #EEF3E6; color: var(--exito); }
+.alerta--error { background: var(--peligro-fondo); color: var(--peligro); }
+.alerta--warning { background: var(--advertencia-fondo); color: var(--advertencia-texto); }
+.alerta--info { background: #EAF1F4; color: #2E5F70; }
+
+.pagina-login {
+  min-height: calc(100vh - 6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.pagina-login::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 640px;
+  height: 640px;
+  transform: translate(-50%, -50%);
+  background: url('/static/img/logo.svg') no-repeat center;
+  background-size: contain;
+  opacity: 0.05;
+  pointer-events: none;
+}
+
+.login-tarjeta {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 16px;
+  box-shadow: var(--sombra);
+  padding: 2.25rem 2rem;
+}
+
+.login-tarjeta img { height: 48px; margin-bottom: 1.25rem; }
+
+.login-tarjeta h1 { font-size: 1.4rem; margin-bottom: 0.2rem; }
+.login-tarjeta .subtitulo { color: var(--texto-tenue); margin-bottom: 1.5rem; font-size: 0.92rem; }
+
+.login-tarjeta .btn { width: 100%; margin-top: 0.4rem; }
+
+.vacio {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--texto-tenue);
+}
+
+/* Directorio */
+.filtros-directorio {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.75rem;
+}
+
+.filtros-directorio .form-grupo { margin-bottom: 0; flex: 1; min-width: 200px; }
+
+.grilla-directorio {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.1rem;
+}
+
+.tarjeta-persona {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 1.25rem;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: border-color 0.15s ease, transform 0.05s ease;
+}
+
+.tarjeta-persona:hover { border-color: var(--oliva); }
+.tarjeta-persona:active { transform: translateY(1px); }
+
+.tarjeta-persona h3 {
+  font-size: 1.02rem;
+  margin: 0 0 0.3rem;
+  color: var(--texto);
+  font-family: var(--fuente-ui);
+  font-weight: 700;
+}
+
+.tarjeta-persona .cargo {
+  font-size: 0.88rem;
+  color: var(--texto-tenue);
+  margin: 0 0 0.6rem;
+}
+
+.badge-depto {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #EEF1E1;
+  color: var(--oliva-oscuro);
+}
+
+.ficha-detalle dl {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  row-gap: 0.75rem;
+  column-gap: 1rem;
+  margin: 0;
+}
+
+.ficha-detalle dt { color: var(--texto-tenue); font-weight: 600; font-size: 0.88rem; }
+.ficha-detalle dd { margin: 0; }
+
+.nota-privada {
+  font-size: 0.82rem;
+  color: var(--texto-tenue);
+  font-style: italic;
+}
+
+/* Mi Ficha */
+.secciones-ficha {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.tarjeta h2 {
+  font-size: 1.15rem;
+  margin-bottom: 1rem;
+}
+
+.tarjeta h2 .subtitulo-seccion {
+  display: block;
+  font-family: var(--fuente-ui);
+  font-weight: 400;
+  font-size: 0.82rem;
+  color: var(--texto-tenue);
+  margin-top: 0.15rem;
+}
+
+.fila-saldo {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+
+.metrica { }
+.metrica .numero {
+  font-family: var(--fuente-display);
+  font-size: 2.2rem;
+  font-weight: 600;
+  color: var(--cafe-oscuro);
+  line-height: 1;
+}
+.metrica .etiqueta {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--texto-tenue);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 0.3rem;
+}
+
+.badge-estado {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+.badge-estado--pendiente { background: var(--advertencia-fondo); color: var(--advertencia-texto); }
+.badge-estado--aprobado, .badge-estado--registrada, .badge-estado--aprobada { background: #EEF3E6; color: var(--exito); }
+.badge-estado--rechazado, .badge-estado--rechazada { background: var(--peligro-fondo); color: var(--peligro); }
+.badge-estado--en_tramite { background: #EAF1F4; color: #2E5F70; }
+
+.lista-archivos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.lista-archivos li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.lista-archivos li:last-child { border-bottom: none; }
+
+.lista-archivos .nombre-archivo { font-weight: 600; }
+.lista-archivos .meta-archivo { font-size: 0.82rem; color: var(--texto-tenue); }
+
+/* Accesos rápidos (widget de Inicio) */
+.accesos-rapidos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.acceso-rapido {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 1.1rem 1.2rem;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: var(--sombra);
+  transition: border-color 0.15s ease, transform 0.05s ease;
+}
+
+.acceso-rapido:hover { border-color: var(--oliva); }
+.acceso-rapido:active { transform: translateY(1px); }
+
+.acceso-rapido__icono {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #EEF1E1;
+  color: var(--oliva-oscuro);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.acceso-rapido__icono svg { width: 22px; height: 22px; }
+
+.acceso-rapido__texto {
+  font-family: var(--fuente-display);
+  font-weight: 600;
+  color: var(--texto);
+  font-size: 0.98rem;
+}
+
+/* Comunicados */
+.lista-comunicados {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.comunicado {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  padding: 1.5rem 1.75rem;
+}
+
+.comunicado--destacado { border-color: var(--terracota); border-width: 1.5px; }
+
+.comunicado__encabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.comunicado__encabezado h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.comunicado__meta {
+  font-size: 0.82rem;
+  color: var(--texto-tenue);
+  margin: 0 0 0.75rem;
+}
+
+.comunicado__cuerpo {
+  white-space: pre-line;
+  line-height: 1.6;
+}
+
+.badge-destacado {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #FBECEA;
+  color: var(--terracota-oscuro);
+  white-space: nowrap;
+}
+
+/* Cumpleaños del mes */
+.lista-cumpleanos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lista-cumpleanos li {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.lista-cumpleanos li:last-child { border-bottom: none; }
+
+.lista-cumpleanos__dia {
+  flex-shrink: 0;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 8px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--fuente-display);
+  font-weight: 600;
+  color: var(--cafe-oscuro);
+}
+
+.lista-cumpleanos__info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* Tarjetas de cumpleaños — estilo tarjeta institucional */
+.grilla-cumple {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 1.25rem;
+}
+
+.tarjeta-cumple {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  padding: 1.4rem 1.3rem 1.2rem;
+  box-shadow: var(--sombra);
+  background:
+    radial-gradient(circle at 90% 14%, rgba(255, 255, 255, 0.55) 0 3px, transparent 4px),
+    radial-gradient(circle at 80% 26%, var(--oliva) 0 3px, transparent 4px),
+    radial-gradient(circle at 96% 34%, rgba(255, 255, 255, 0.6) 0 2px, transparent 3px),
+    radial-gradient(circle at 12% 88%, var(--oliva) 0 3px, transparent 4px),
+    radial-gradient(circle at 20% 94%, rgba(255, 255, 255, 0.5) 0 2px, transparent 3px),
+    radial-gradient(circle at 6% 74%, rgba(255, 255, 255, 0.4) 0 2px, transparent 3px),
+    linear-gradient(155deg, var(--terracota) 0%, var(--terracota-oscuro) 100%);
+}
+
+.tarjeta-cumple::before,
+.tarjeta-cumple::after {
+  content: '';
+  position: absolute;
+  width: 46px;
+  height: 72px;
+  pointer-events: none;
+  opacity: 0.9;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.tarjeta-cumple::before {
+  top: -10px;
+  right: 8px;
+  transform: rotate(8deg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='46' height='72' viewBox='0 0 46 72'%3E%3Cpath d='M15 34 L15 66' stroke='%23FFFFFF' stroke-opacity='0.65' stroke-width='1.5'/%3E%3Cellipse cx='15' cy='17' rx='14' ry='17' fill='%23FFFFFF' fill-opacity='0.92'/%3E%3Cpath d='M31 44 L31 68' stroke='%2398A437' stroke-opacity='0.7' stroke-width='1.5'/%3E%3Cellipse cx='31' cy='31' rx='11' ry='13' fill='%2398A437'/%3E%3C/svg%3E");
+}
+
+.tarjeta-cumple::after {
+  bottom: -12px;
+  left: 6px;
+  transform: rotate(-14deg) scaleX(-1);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='46' height='72' viewBox='0 0 46 72'%3E%3Cpath d='M15 34 L15 66' stroke='%23FFFFFF' stroke-opacity='0.5' stroke-width='1.5'/%3E%3Cellipse cx='15' cy='17' rx='12' ry='15' fill='%23FFFFFF' fill-opacity='0.5'/%3E%3C/svg%3E");
+}
+
+.tarjeta-cumple--hoy {
+  box-shadow: 0 0 0 3px var(--oliva), var(--sombra);
+}
+
+.tarjeta-cumple__marca {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tarjeta-cumple__marca img {
+  height: 20px;
+  width: auto;
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+}
+
+.tarjeta-cumple__marca span {
+  font-family: var(--fuente-display);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: #fff;
+  opacity: 0.95;
+}
+
+.tarjeta-cumple__panel {
+  position: relative;
+  z-index: 1;
+  background: var(--superficie);
+  border-radius: 14px;
+  padding: 1.3rem 1.15rem 1.1rem;
+  text-align: center;
+}
+
+.tarjeta-cumple__titulo {
+  font-family: 'Pacifico', var(--fuente-display), cursive;
+  font-weight: 400;
+  font-size: 1.55rem;
+  line-height: 1.15;
+  color: var(--cafe-oscuro);
+  margin: 0 0 0.7rem;
+}
+
+.tarjeta-cumple__texto {
+  font-size: 0.82rem;
+  color: var(--texto-tenue);
+  margin: 0 0 0.3rem;
+  line-height: 1.45;
+}
+
+.tarjeta-cumple__nombre {
+  font-family: var(--fuente-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--texto);
+  margin: 0.15rem 0 0.1rem;
+}
+
+.tarjeta-cumple__cargo {
+  font-size: 0.8rem;
+  color: var(--texto-tenue);
+  margin: 0 0 0.85rem;
+}
+
+.tarjeta-cumple__deseo {
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--texto-tenue);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.tarjeta-cumple__pie {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .topbar { padding: 0.75rem 1rem; }
+  .topbar__nav { gap: 1rem; font-size: 0.88rem; }
+  .contenedor { padding: 1.5rem 1rem 3rem; }
+}

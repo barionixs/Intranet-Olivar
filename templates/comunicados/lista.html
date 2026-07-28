@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load static %}
+{% block titulo %}Comunicados{% endblock %}
+
+{% block contenido %}
+<div class="encabezado-seccion">
+  <div>
+    <h1>Comunicados</h1>
+    <p>Avisos y novedades de la municipalidad.</p>
+  </div>
+  {% if request.user.is_superuser or request.user.rol == 'admin' or request.user.rol == 'rrhh' %}
+  <a href="{% url 'comunicados:crear' %}" class="btn btn--primario">+ Nuevo comunicado</a>
+  {% endif %}
+</div>
+
+{% if cumpleañeros_mes %}
+<div class="encabezado-seccion">
+  <div>
+    <h2 style="margin: 0;">Cumpleaños de {{ mes_actual_nombre }}</h2>
+  </div>
+</div>
+<div class="grilla-cumple" style="margin-bottom: 2.5rem;">
+  {% for persona in cumpleañeros_mes %}
+  <div class="tarjeta-cumple{% if persona.dia == dia_hoy %} tarjeta-cumple--hoy{% endif %}">
+    <div class="tarjeta-cumple__marca">
+      <img src="{% static 'img/logo.svg' %}" alt="">
+      <span>Municipalidad de Olivar</span>
+    </div>
+    <div class="tarjeta-cumple__panel">
+      <p class="tarjeta-cumple__titulo">¡Feliz Cumpleaños!</p>
+      <p class="tarjeta-cumple__texto">La Ilustre Municipalidad de Olivar le desea un <strong>FELIZ CUMPLEAÑOS</strong> a:</p>
+      <p class="tarjeta-cumple__nombre">{{ persona.nombre_completo }}</p>
+      <p class="tarjeta-cumple__cargo">{{ persona.cargo_mostrar }}</p>
+      <p class="tarjeta-cumple__deseo">Que tengas un día lleno de amor y felicidad.<br>Que tus sueños se cumplan y estés siempre con las personas que amas.</p>
+    </div>
+    <p class="tarjeta-cumple__pie">{{ persona.dia }} de {{ persona.fecha_nacimiento|date:"F" }}{% if persona.dia == dia_hoy %} · ¡Hoy!{% endif %}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if comunicados %}
+<div class="lista-comunicados">
+  {% for comunicado in comunicados %}
+  <article class="comunicado {% if comunicado.destacado %}comunicado--destacado{% endif %}">
+    <div class="comunicado__encabezado">
+      <h2>{{ comunicado.titulo }}</h2>
+      {% if comunicado.destacado %}<span class="badge-destacado">Destacado</span>{% endif %}
+    </div>
+    <p class="comunicado__meta">{{ comunicado.fecha_publicacion|date:"d/m/Y H:i" }} · {{ comunicado.autor.get_full_name|default:comunicado.autor.username }}</p>
+    <div class="comunicado__cuerpo">{{ comunicado.cuerpo }}</div>
+    {% if request.user.is_superuser or request.user.rol == 'admin' or request.user.rol == 'rrhh' %}
+    <div class="acciones-fila" style="margin-top: 1rem;">
+      <a href="{% url 'comunicados:editar' comunicado.pk %}">Editar</a>
+      <a href="{% url 'comunicados:eliminar' comunicado.pk %}">Eliminar</a>
+    </div>
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>
+
+{% if is_paginated %}
+<div class="acciones-form">
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn--secundario">← Anterior</a>{% endif %}
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn--secundario">Siguiente →</a>{% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="vacio">Todavía no hay comunicados publicados.</div>
+{% endif %}
+{% endblock %}

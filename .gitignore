@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+db.sqlite3
+media/
+staticfiles/
+.env
+
+# Datos personales / nómina real: nunca al repo
+data_privada/
+*.xlsx
+*.xls

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Editar {{ object.nombre_completo }}{% endblock %}
+{% block contenedor_extra_class %} contenedor--angosto{% endblock %}
+
+{% block contenido %}
+<p><a href="{% url 'directorio:detalle' object.pk %}">← Volver a la ficha</a></p>
+
+<div class="tarjeta">
+  <h1>Editar a {{ object.nombre_completo }}</h1>
+
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="form-grupo">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<span class="error">{{ error }}</span>{% endfor %}
+      </div>
+    {% endfor %}
+    <div class="acciones-form">
+      <button type="submit" class="btn btn--primario">Guardar</button>
+      <a href="{% url 'directorio:detalle' object.pk %}" class="btn btn--secundario">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
