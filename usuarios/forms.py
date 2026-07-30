@@ -24,8 +24,7 @@ class LoginForm(AuthenticationForm):
 class UsuarioCreacionForm(forms.ModelForm):
     password = forms.CharField(
         label="Contraseña inicial",
-        initial="123456",
-        widget=forms.TextInput,
+        widget=forms.PasswordInput(render_value=False),
         help_text="La persona deberá cambiarla la primera vez que inicie sesión.",
     )
 
@@ -59,7 +58,7 @@ class UsuarioEdicionForm(forms.ModelForm):
     nueva_password = forms.CharField(
         label="Restablecer contraseña",
         required=False,
-        widget=forms.TextInput,
+        widget=forms.PasswordInput(render_value=False),
         help_text="Déjalo vacío para no cambiarla. Si escribes algo, la persona deberá cambiarla en su próximo inicio de sesión.",
     )
 

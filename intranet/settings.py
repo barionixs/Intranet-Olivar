@@ -12,20 +12,25 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 
+import environ
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+env = environ.Env()
+environ.Env.read_env(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-umz4o8(edla#m9e+oho-v!1@=wp6(%0h6q2x7fa#j-0kc=(^%v'
+SECRET_KEY = env('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool('DJANGO_DEBUG', default=False)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=[])
 
 
 # Application definition
@@ -41,6 +46,7 @@ INSTALLED_APPS = [
     'directorio',
     'comunicados',
     'rrhh',
+    'axes',
 ]
 
 AUTH_USER_MODEL = 'usuarios.Usuario'
@@ -54,7 +60,16 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'usuarios.middleware.ForzarCambioPasswordMiddleware',
+    'axes.middleware.AxesMiddleware',
 ]
+
+# django-axes: bloqueo por fuerza bruta en el login.
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = 0.5  # horas (30 minutos)
 
 ROOT_URLCONF = 'intranet.urls'
 
@@ -83,11 +98,11 @@ WSGI_APPLICATION = 'intranet.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'intranet_olivar',
-        'USER': 'intranet_olivar',
-        'PASSWORD': 'olivar_intranet_2026',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': env('DB_NAME'),
+        'USER': env('DB_USER'),
+        'PASSWORD': env('DB_PASSWORD'),
+        'HOST': env('DB_HOST', default='localhost'),
+        'PORT': env('DB_PORT', default='5432'),
     }
 }
 
@@ -137,3 +152,20 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'inicio'
 LOGOUT_REDIRECT_URL = 'login'
+
+
+# Endurecimiento de cookies/HTTPS. Solo tiene sentido cuando el sitio se
+# sirve realmente por HTTPS (producción), por eso se activa junto con
+# DEBUG=False y no en el entorno de desarrollo local.
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    # HSTS_INCLUDE_SUBDOMAINS y HSTS_PRELOAD solo deben activarse cuando
+    # TODO el dominio (y sus subdominios) esté 100% servido bajo HTTPS de
+    # forma estable: son difíciles de revertir (preload en particular
+    # queda cacheado en los navegadores por mucho tiempo).
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
