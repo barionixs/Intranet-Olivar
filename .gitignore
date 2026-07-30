@@ -10,3 +10,6 @@ staticfiles/
 data_privada/
 *.xlsx
 *.xls
+
+# Respaldos de base de datos: nunca al repo
+respaldos_bd/
