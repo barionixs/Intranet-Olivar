@@ -12,7 +12,10 @@
       <p class="cargo">{{ funcionario.cargo|default:"Cargo sin registrar" }} · <span class="badge-depto">{{ funcionario.departamento.nombre }}</span></p>
     </div>
     {% if request.user.is_superuser %}
-    <a href="{% url 'directorio:editar' funcionario.pk %}" class="btn btn--secundario">Editar</a>
+    <div>
+      <a href="{% url 'directorio:editar' funcionario.pk %}" class="btn btn--secundario">Editar</a>
+      <a href="{% url 'directorio:eliminar' funcionario.pk %}" class="btn btn--peligro">Eliminar</a>
+    </div>
     {% endif %}
   </div>
 

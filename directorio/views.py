@@ -1,9 +1,10 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.db.models import Q
+from django.db import transaction
+from django.db.models import ProtectedError, Q
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
-from django.views.generic import DetailView, ListView, UpdateView
+from django.views.generic import DeleteView, DetailView, ListView, UpdateView
 
 from .forms import FuncionarioEditForm
 from .models import Departamento, Funcionario
@@ -75,4 +76,47 @@ class FuncionarioUpdateView(SoloSuperAdminMixin, UpdateView):
     def form_valid(self, form):
         respuesta = super().form_valid(form)
         messages.success(self.request, f"Datos de {self.object} actualizados.")
+        return respuesta
+
+
+class FuncionarioDeleteView(SoloSuperAdminMixin, DeleteView):
+    model = Funcionario
+    template_name = "directorio/confirmar_eliminar.html"
+    success_url = reverse_lazy("directorio:lista")
+    context_object_name = "funcionario"
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        funcionario = self.object
+        contexto["tiene_usuario"] = funcionario.usuario_id is not None
+        contexto["registros_rrhh"] = sum([
+            1 if hasattr(funcionario, "ficha_laboral") else 0,
+            funcionario.permisos.count(),
+            funcionario.licencias_medicas.count(),
+            funcionario.liquidaciones.count(),
+            funcionario.documentos_personales.count(),
+        ])
+        return contexto
+
+    def post(self, request, *args, **kwargs):
+        funcionario = self.get_object()
+        nombre = str(funcionario)
+        usuario_vinculado = funcionario.usuario
+        try:
+            with transaction.atomic():
+                if usuario_vinculado:
+                    # Funcionario.usuario es CASCADE: borrar el usuario ya borra
+                    # este Funcionario solo. No hay que borrarlo de nuevo.
+                    usuario_vinculado.delete()
+                else:
+                    funcionario.delete()
+        except ProtectedError:
+            messages.error(
+                request,
+                f"No se puede eliminar a {nombre}: su cuenta de usuario tiene registros asociados "
+                "(por ejemplo, comunicados publicados). Elimina o reasigna esos registros primero.",
+            )
+            return redirect("directorio:lista")
+        messages.success(request, f"{nombre} eliminado del directorio.")
+        respuesta = redirect(self.success_url)
         return respuesta

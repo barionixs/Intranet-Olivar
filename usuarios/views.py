@@ -89,6 +89,20 @@ class UsuarioDeleteView(SoloAdminMixin, DeleteView):
     success_url = reverse_lazy("usuarios:lista")
     context_object_name = "usuario_objetivo"
 
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        funcionario = getattr(self.object, "funcionario", None)
+        contexto["tiene_funcionario"] = funcionario is not None
+        if funcionario:
+            contexto["registros_rrhh"] = sum([
+                1 if hasattr(funcionario, "ficha_laboral") else 0,
+                funcionario.permisos.count(),
+                funcionario.licencias_medicas.count(),
+                funcionario.liquidaciones.count(),
+                funcionario.documentos_personales.count(),
+            ])
+        return contexto
+
     def post(self, request, *args, **kwargs):
         usuario_objetivo = self.get_object()
         if usuario_objetivo == request.user:

@@ -1,24 +1,24 @@
 {% extends "base.html" %}
-{% block titulo %}Eliminar usuario{% endblock %}
+{% block titulo %}Eliminar del directorio{% endblock %}
 {% block contenedor_extra_class %} contenedor--angosto{% endblock %}
 
 {% block contenido %}
 <div class="tarjeta">
-  <h1>¿Eliminar esta cuenta?</h1>
-  <p>Vas a eliminar la cuenta de <strong>{{ usuario_objetivo }}</strong> ({{ usuario_objetivo.username }}). Esta acción no se puede deshacer.</p>
-  {% if tiene_funcionario %}
-  <p>También elimina:</p>
+  <h1>¿Eliminar a {{ funcionario }} del directorio?</h1>
+  <p>Esta acción no se puede deshacer y también elimina:</p>
   <ul>
-    <li>Su ficha del Directorio (ya no va a aparecer en la nómina de funcionarios).</li>
+    {% if tiene_usuario %}<li>Su cuenta de usuario (acceso a la intranet).</li>{% endif %}
     {% if registros_rrhh %}<li>Sus registros de RRHH asociados (ficha laboral, solicitudes, licencias médicas, liquidaciones, documentos personales).</li>{% endif %}
   </ul>
+  {% if not tiene_usuario and not registros_rrhh %}
+  <p class="ayuda">No tiene cuenta de usuario ni registros de RRHH asociados.</p>
   {% endif %}
 
   <form method="post">
     {% csrf_token %}
     <div class="acciones-form">
       <button type="submit" class="btn btn--peligro">Sí, eliminar</button>
-      <a href="{% url 'usuarios:lista' %}" class="btn btn--secundario">Cancelar</a>
+      <a href="{% url 'directorio:detalle' funcionario.pk %}" class="btn btn--secundario">Cancelar</a>
     </div>
   </form>
 </div>

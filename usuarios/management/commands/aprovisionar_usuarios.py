@@ -6,7 +6,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils.crypto import get_random_string
 
-from directorio.models import Funcionario
+from directorio.models import Funcionario, dividir_nombre_chileno
 from usuarios.models import Usuario
 
 RUT_SUPER_ADMIN = "20026280-8"
@@ -30,7 +30,11 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         super_admin, creado = Usuario.objects.update_or_create(
             username=RUT_SUPER_ADMIN,
-            defaults={"rol": Usuario.Rol.ADMIN, "is_staff": True, "is_superuser": True, "debe_cambiar_password": False},
+            # "admin" ya no está en Usuario.Rol (se sacó del desplegable de Rol en
+            # el panel de Usuarios), pero sigue siendo un valor válido guardado a
+            # mano acá: los chequeos de permisos en comunicados/rrhh/directorio
+            # siguen comparando contra el string "admin" directamente.
+            defaults={"rol": "admin", "is_staff": True, "is_superuser": True, "debe_cambiar_password": False},
         )
 
         # La contraseña del super admin solo se fija (o se rota) cuando la
@@ -50,8 +54,7 @@ class Command(BaseCommand):
 
         funcionario_admin = Funcionario.objects.filter(rut=RUT_SUPER_ADMIN).first()
         if funcionario_admin:
-            super_admin.first_name = funcionario_admin.nombre_completo.split(" ")[0]
-            super_admin.last_name = " ".join(funcionario_admin.nombre_completo.split(" ")[1:])
+            super_admin.first_name, super_admin.last_name = dividir_nombre_chileno(funcionario_admin.nombre_completo)
             funcionario_admin.usuario = super_admin
             funcionario_admin.save(update_fields=["usuario"])
         super_admin.save()
@@ -62,12 +65,12 @@ class Command(BaseCommand):
 
         credenciales_nuevas = []
         for funcionario in Funcionario.objects.filter(usuario__isnull=True).exclude(rut=RUT_SUPER_ADMIN):
-            partes = funcionario.nombre_completo.split(" ")
+            nombres, apellidos = dividir_nombre_chileno(funcionario.nombre_completo)
             password_generada = generar_password(10)
             usuario = Usuario.objects.create(
                 username=funcionario.rut,
-                first_name=partes[0],
-                last_name=" ".join(partes[1:]),
+                first_name=nombres,
+                last_name=apellidos,
                 email=funcionario.email,
                 rol=Usuario.Rol.FUNCIONARIO,
                 debe_cambiar_password=True,

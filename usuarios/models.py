@@ -10,8 +10,8 @@ class Usuario(AbstractUser):
     class Rol(models.TextChoices):
         FUNCIONARIO = "funcionario", "Funcionario"
         JEFATURA = "jefatura", "Jefatura"
-        RRHH = "rrhh", "RRHH"
-        ADMIN = "admin", "Administrador"
+        DIRECTIVO = "directivo", "Directivo"
+        ENCARGADO = "encargado", "Encargado"
 
     rol = models.CharField(max_length=20, choices=Rol.choices, default=Rol.FUNCIONARIO)
     debe_cambiar_password = models.BooleanField(

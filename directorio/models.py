@@ -9,6 +9,19 @@ MESES_ES = [
 ]
 
 
+def dividir_nombre_chileno(nombre_completo):
+    """`nombre_completo` viene de la nómina como "Apellido paterno,
+    Apellido materno, Nombres" (orden chileno), no "Nombre, Apellido"
+    como asume Django. Se asume que los primeros dos tokens son los
+    apellidos y el resto son los nombres — funciona para la gran
+    mayoría de los casos reales, salvo apellidos compuestos (ej.
+    "San Juan"), que quedan mal y hay que corregirlos a mano."""
+    tokens = nombre_completo.split()
+    apellidos = " ".join(tokens[:2])
+    nombres = " ".join(tokens[2:])
+    return nombres, apellidos
+
+
 class FuncionarioManager(models.Manager):
     def cumpleañeros_del_mes(self, mes):
         return (
@@ -89,6 +102,7 @@ class Funcionario(models.Model):
     class Cargo(models.TextChoices):
         FUNCIONARIO = "funcionario", "Funcionario"
         JEFE = "jefe", "Jefe"
+        ENCARGADO = "encargado", "Encargado"
         DIRECTOR = "director", "Director"
 
     nombre_completo = models.CharField(max_length=200)
@@ -104,9 +118,10 @@ class Funcionario(models.Model):
         settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         related_name="funcionario",
-        help_text="Se completa cuando la persona recibe su cuenta de acceso a la intranet.",
+        help_text="Se completa cuando la persona recibe su cuenta de acceso a la intranet. "
+        "Al eliminar la cuenta de usuario, esta ficha de directorio se elimina con ella.",
     )
 
     objects = FuncionarioManager()
@@ -122,10 +137,10 @@ class Funcionario(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.usuario_id:
-            partes = self.nombre_completo.split()
+            nombres, apellidos = dividir_nombre_chileno(self.nombre_completo)
             get_user_model().objects.filter(pk=self.usuario_id).update(
-                first_name=partes[0] if partes else "",
-                last_name=" ".join(partes[1:]),
+                first_name=nombres,
+                last_name=apellidos,
                 email=self.email,
             )
 
