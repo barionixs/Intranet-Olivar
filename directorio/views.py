@@ -1,9 +1,11 @@
+from urllib.parse import quote
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db import transaction
 from django.db.models import ProtectedError, Q
 from django.shortcuts import redirect
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views.generic import DeleteView, DetailView, ListView, UpdateView
 
 from .forms import FuncionarioEditForm
@@ -71,7 +73,11 @@ class FuncionarioUpdateView(SoloSuperAdminMixin, UpdateView):
     template_name = "directorio/editar.html"
 
     def get_success_url(self):
-        return reverse_lazy("directorio:detalle", kwargs={"pk": self.object.pk})
+        url = reverse("directorio:detalle", kwargs={"pk": self.object.pk})
+        volver = self.request.GET.get("volver")
+        if volver:
+            url += f"?volver={quote(volver)}"
+        return url
 
     def form_valid(self, form):
         respuesta = super().form_valid(form)

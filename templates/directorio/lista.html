@@ -31,7 +31,7 @@
 {% if funcionarios %}
 <div class="grilla-directorio">
   {% for persona in funcionarios %}
-  <a href="{% url 'directorio:detalle' persona.pk %}" class="tarjeta-persona">
+  <a href="{% url 'directorio:detalle' persona.pk %}?volver={{ request.get_full_path|urlencode }}" class="tarjeta-persona">
     <h3>{{ persona.nombre_completo }}</h3>
     <p class="cargo">{{ persona.cargo|default:"Cargo sin registrar" }}</p>
     <span class="badge-depto">{{ persona.departamento.nombre }}</span>
@@ -39,12 +39,7 @@
   {% endfor %}
 </div>
 
-{% if is_paginated %}
-<div class="acciones-form">
-  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if departamento_id %}&departamento={{ departamento_id }}{% endif %}" class="btn btn--secundario">← Anterior</a>{% endif %}
-  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if departamento_id %}&departamento={{ departamento_id }}{% endif %}" class="btn btn--secundario">Siguiente →</a>{% endif %}
-</div>
-{% endif %}
+{% include "paginacion.html" %}
 
 {% else %}
 <div class="vacio">No hay funcionarios que coincidan con la búsqueda.</div>

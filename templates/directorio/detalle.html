@@ -3,17 +3,18 @@
 {% block contenedor_extra_class %} contenedor--angosto{% endblock %}
 
 {% block contenido %}
-<p><a href="{% url 'directorio:lista' %}">← Volver al directorio</a></p>
+{% url 'directorio:lista' as url_lista %}
+<p><a href="{{ request.GET.volver|default:url_lista }}">← Volver al directorio</a></p>
 
 <div class="tarjeta ficha-detalle">
-  <div class="encabezado-seccion" style="margin-bottom: 0;">
+  <div class="encabezado-seccion">
     <div>
       <h1>{{ funcionario.nombre_completo }}</h1>
       <p class="cargo">{{ funcionario.cargo|default:"Cargo sin registrar" }} · <span class="badge-depto">{{ funcionario.departamento.nombre }}</span></p>
     </div>
     {% if request.user.is_superuser %}
     <div>
-      <a href="{% url 'directorio:editar' funcionario.pk %}" class="btn btn--secundario">Editar</a>
+      <a href="{% url 'directorio:editar' funcionario.pk %}{% if request.GET.volver %}?volver={{ request.GET.volver|urlencode }}{% endif %}" class="btn btn--secundario">Editar</a>
       <a href="{% url 'directorio:eliminar' funcionario.pk %}" class="btn btn--peligro">Eliminar</a>
     </div>
     {% endif %}

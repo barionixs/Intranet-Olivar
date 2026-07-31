@@ -3,12 +3,13 @@
 {% block contenedor_extra_class %} contenedor--angosto{% endblock %}
 
 {% block contenido %}
-<p><a href="{% url 'directorio:detalle' object.pk %}">← Volver a la ficha</a></p>
+{% url 'directorio:detalle' object.pk as url_detalle %}
+<p><a href="{{ url_detalle }}{% if request.GET.volver %}?volver={{ request.GET.volver|urlencode }}{% endif %}">← Volver a la ficha</a></p>
 
 <div class="tarjeta">
   <h1>Editar a {{ object.nombre_completo }}</h1>
 
-  <form method="post">
+  <form method="post" action="{% if request.GET.volver %}?volver={{ request.GET.volver|urlencode }}{% endif %}">
     {% csrf_token %}
     {% for field in form %}
       <div class="form-grupo">
@@ -19,7 +20,7 @@
     {% endfor %}
     <div class="acciones-form">
       <button type="submit" class="btn btn--primario">Guardar</button>
-      <a href="{% url 'directorio:detalle' object.pk %}" class="btn btn--secundario">Cancelar</a>
+      <a href="{{ url_detalle }}{% if request.GET.volver %}?volver={{ request.GET.volver|urlencode }}{% endif %}" class="btn btn--secundario">Cancelar</a>
     </div>
   </form>
 </div>

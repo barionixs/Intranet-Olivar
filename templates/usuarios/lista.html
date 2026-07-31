@@ -43,12 +43,7 @@
     </tbody>
   </table>
 
-  {% if is_paginated %}
-  <div class="acciones-form">
-    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}" class="btn btn--secundario">← Anterior</a>{% endif %}
-    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}" class="btn btn--secundario">Siguiente →</a>{% endif %}
-  </div>
-  {% endif %}
+  {% include "paginacion.html" %}
 
   {% else %}
   <div class="vacio">No hay usuarios que coincidan con la búsqueda.</div>
