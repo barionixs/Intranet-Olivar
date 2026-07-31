@@ -474,7 +474,7 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
   border-radius: 999px;
 }
 .badge-estado--pendiente { background: var(--advertencia-fondo); color: var(--advertencia-texto); }
-.badge-estado--aprobado, .badge-estado--registrada, .badge-estado--aprobada { background: #EEF3E6; color: var(--exito); }
+.badge-estado--aprobado, .badge-estado--registrada, .badge-estado--aprobada, .badge-estado--firmado { background: #EEF3E6; color: var(--exito); }
 .badge-estado--rechazado, .badge-estado--rechazada { background: var(--peligro-fondo); color: var(--peligro); }
 .badge-estado--en_tramite { background: #EAF1F4; color: #2E5F70; }
 

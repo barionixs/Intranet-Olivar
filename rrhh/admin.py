@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import DocumentoPersonal, FichaLaboral, LicenciaMedica, LiquidacionSueldo, SolicitudPermiso
+from .models import (
+    CargoUnico,
+    DocumentoPersonal,
+    FichaLaboral,
+    FirmaSolicitud,
+    LicenciaMedica,
+    LiquidacionSueldo,
+    SolicitudPermiso,
+)
 
 
 @admin.register(FichaLaboral)
@@ -41,3 +49,17 @@ class DocumentoPersonalAdmin(admin.ModelAdmin):
     list_filter = ("categoria",)
     search_fields = ("funcionario__nombre_completo", "funcionario__rut", "nombre")
     autocomplete_fields = ("funcionario",)
+
+
+@admin.register(CargoUnico)
+class CargoUnicoAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "funcionario")
+    autocomplete_fields = ("funcionario",)
+
+
+@admin.register(FirmaSolicitud)
+class FirmaSolicitudAdmin(admin.ModelAdmin):
+    list_display = ("solicitud", "orden", "rol_firmante", "funcionario_firmante", "estado", "fecha_firma")
+    list_filter = ("rol_firmante", "estado")
+    search_fields = ("solicitud__funcionario__nombre_completo", "funcionario_firmante__nombre_completo")
+    autocomplete_fields = ("funcionario_firmante",)

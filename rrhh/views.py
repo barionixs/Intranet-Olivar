@@ -1,19 +1,29 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.shortcuts import get_object_or_404, redirect
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views import View
-from django.views.generic import CreateView, ListView, TemplateView
+from django.views.generic import CreateView, DetailView, ListView, TemplateView
 
-from .forms import SolicitudPermisoForm
-from .models import FichaLaboral, SolicitudPermiso
+from directorio.models import Departamento, Funcionario
+from directorio.views import SoloSuperAdminMixin
+
+from .forms import ReautenticacionFirmaForm, SolicitudPermisoForm
+from .models import CargoUnico, FichaLaboral, FirmaSolicitud, SolicitudPermiso
 from .utils import (
+    actualizar_estado_solicitud,
     calcular_antiguedad,
     calcular_saldo_vacaciones,
-    puede_gestionar_esta_solicitud,
+    crear_firmas_para_solicitud,
+    es_su_turno,
+    firmas_visibles_para,
+    hash_solicitud,
+    obtener_ip_cliente,
+    puede_firmar,
     puede_gestionar_solicitudes,
-    solicitudes_gestionables,
+    resolver_jefatura_directa,
 )
 
 
@@ -65,16 +75,104 @@ class SolicitudPermisoCreateView(LoginRequiredMixin, CreateView):
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
-        form.instance.funcionario = self.request.user.funcionario
+        funcionario = self.request.user.funcionario
+        jefatura_directa = resolver_jefatura_directa(funcionario)
+        if not jefatura_directa:
+            messages.error(
+                self.request,
+                "Todavía no se puede enviar tu solicitud: tu jefatura directa no está configurada "
+                "en el sistema. Avisa a TI para que complete tu jerarquía y vuelve a intentarlo.",
+            )
+            return redirect("rrhh:mi_ficha")
+
+        form.instance.funcionario = funcionario
         respuesta = super().form_valid(form)
-        messages.success(self.request, "Tu solicitud quedó registrada como pendiente.")
+        crear_firmas_para_solicitud(self.object)
+        messages.success(
+            self.request,
+            "Tu solicitud quedó registrada. Debes firmarla tú primero para que siga su curso.",
+        )
         return respuesta
 
 
-class AprobacionesListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+class SolicitudDetalleView(LoginRequiredMixin, DetailView):
     model = SolicitudPermiso
+    template_name = "rrhh/detalle_solicitud.html"
+    context_object_name = "solicitud"
+
+    def get_queryset(self):
+        return SolicitudPermiso.objects.select_related("funcionario", "funcionario__departamento")
+
+    def get_object(self, queryset=None):
+        solicitud = super().get_object(queryset)
+        funcionario = getattr(self.request.user, "funcionario", None)
+        es_el_interesado = funcionario is not None and solicitud.funcionario_id == funcionario.id
+        es_firmante = funcionario is not None and solicitud.firmas.filter(funcionario_firmante=funcionario).exists()
+        if not (es_el_interesado or es_firmante or puede_gestionar_solicitudes(self.request.user)):
+            raise PermissionDenied("No puedes ver esta solicitud.")
+        return solicitud
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        firmas = list(self.object.firmas.select_related("funcionario_firmante").order_by("orden"))
+        contexto["firmas"] = firmas
+        funcionario = getattr(self.request.user, "funcionario", None)
+        for firma in firmas:
+            firma.es_mi_turno = (
+                firma.estado == FirmaSolicitud.Estado.PENDIENTE
+                and puede_firmar(self.request.user, firma)
+                and es_su_turno(firma)
+            )
+        return contexto
+
+
+class FirmarSolicitudView(LoginRequiredMixin, View):
+    def dispatch(self, request, *args, **kwargs):
+        self.firma = get_object_or_404(
+            FirmaSolicitud, solicitud_id=kwargs["solicitud_id"], orden=kwargs["orden"]
+        )
+        if not puede_firmar(request.user, self.firma):
+            raise PermissionDenied("No eres quien debe firmar este paso.")
+        if self.firma.estado != FirmaSolicitud.Estado.PENDIENTE:
+            messages.info(request, "Este paso ya fue resuelto.")
+            return redirect("rrhh:detalle_solicitud", pk=self.firma.solicitud_id)
+        if not es_su_turno(self.firma):
+            messages.error(request, "Todavía faltan firmas anteriores en el orden correspondiente.")
+            return redirect("rrhh:detalle_solicitud", pk=self.firma.solicitud_id)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request, *args, **kwargs):
+        form = ReautenticacionFirmaForm()
+        return render(request, "rrhh/firmar_solicitud.html", {"firma": self.firma, "form": form})
+
+    def post(self, request, *args, **kwargs):
+        form = ReautenticacionFirmaForm(request.POST)
+        accion = request.POST.get("accion", "firmar")
+        if form.is_valid():
+            if not request.user.check_password(form.cleaned_data["password"]):
+                form.add_error("password", "Contraseña incorrecta.")
+            else:
+                if accion == "rechazar":
+                    self.firma.estado = FirmaSolicitud.Estado.RECHAZADO
+                else:
+                    self.firma.estado = FirmaSolicitud.Estado.FIRMADO
+                    self.firma.hash_documento = hash_solicitud(self.firma.solicitud)
+                self.firma.fecha_firma = timezone.now()
+                self.firma.ip_firma = obtener_ip_cliente(request)
+                self.firma.comentario = form.cleaned_data.get("comentario", "")
+                self.firma.save()
+                actualizar_estado_solicitud(self.firma.solicitud)
+                messages.success(
+                    request, "Solicitud rechazada." if accion == "rechazar" else "Firma registrada."
+                )
+                return redirect("rrhh:detalle_solicitud", pk=self.firma.solicitud_id)
+        return render(request, "rrhh/firmar_solicitud.html", {"firma": self.firma, "form": form})
+
+
+class AprobacionesListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    model = FirmaSolicitud
     template_name = "rrhh/aprobaciones.html"
-    context_object_name = "solicitudes"
+    context_object_name = "firmas"
 
     def test_func(self):
         return puede_gestionar_solicitudes(self.request.user)
@@ -82,11 +180,11 @@ class AprobacionesListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
-        messages.error(self.request, "No tienes equipo a cargo, así que no hay solicitudes que aprobar.")
+        messages.error(self.request, "No tienes solicitudes por firmar.")
         return redirect("inicio")
 
     def get_queryset(self):
-        qs = solicitudes_gestionables(self.request.user).order_by("-fecha_solicitud")
+        qs = firmas_visibles_para(self.request.user).order_by("-solicitud__fecha_solicitud", "orden")
         self.estado = self.request.GET.get("estado", "pendiente")
         if self.estado != "todas":
             qs = qs.filter(estado=self.estado)
@@ -95,30 +193,86 @@ class AprobacionesListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
         contexto["estado_filtro"] = self.estado
-        contexto["total_pendientes"] = solicitudes_gestionables(self.request.user).filter(
-            estado=SolicitudPermiso.Estado.PENDIENTE
+        contexto["total_pendientes"] = firmas_visibles_para(self.request.user).filter(
+            estado=FirmaSolicitud.Estado.PENDIENTE
         ).count()
+        for firma in contexto["firmas"]:
+            firma.es_mi_turno = (
+                firma.estado == FirmaSolicitud.Estado.PENDIENTE
+                and puede_firmar(self.request.user, firma)
+                and es_su_turno(firma)
+            )
         return contexto
 
 
-class ResolverSolicitudView(LoginRequiredMixin, View):
-    def post(self, request, pk):
-        solicitud = get_object_or_404(SolicitudPermiso, pk=pk)
-        if not puede_gestionar_esta_solicitud(request.user, solicitud):
-            messages.error(request, "No puedes resolver esa solicitud.")
-            return redirect("rrhh:aprobaciones")
+class PanelFirmantesView(SoloSuperAdminMixin, View):
+    """Panel de asignación manual y directa de firmantes: jefes de
+    departamento, cargos únicos (Jefa de Personal, Alcaldesa) y
+    excepciones de jefe directo por persona. Sin cálculo automático de
+    por medio — lo que se asigna acá es exactamente quién firma."""
 
+    template_name = "rrhh/panel_firmantes.html"
+
+    def get_contexto(self):
+        return {
+            "departamentos": Departamento.objects.select_related("jefe", "departamento_padre").order_by("nombre"),
+            "funcionarios": Funcionario.objects.order_by("nombre_completo"),
+            "cargo_jefa_personal": CargoUnico.objects.filter(nombre=CargoUnico.Nombre.JEFA_PERSONAL).first(),
+            "cargo_alcaldesa": CargoUnico.objects.filter(nombre=CargoUnico.Nombre.ALCALDESA).first(),
+            "excepciones": Funcionario.objects.filter(jefe_directo__isnull=False)
+                .select_related("jefe_directo", "departamento").order_by("nombre_completo"),
+        }
+
+    def get(self, request, *args, **kwargs):
+        return render(request, self.template_name, self.get_contexto())
+
+    def post(self, request, *args, **kwargs):
         accion = request.POST.get("accion")
-        if accion == "aprobar":
-            solicitud.estado = SolicitudPermiso.Estado.APROBADO
-        elif accion == "rechazar":
-            solicitud.estado = SolicitudPermiso.Estado.RECHAZADO
-        else:
-            messages.error(request, "Acción no reconocida.")
-            return redirect("rrhh:aprobaciones")
+        if accion == "guardar_departamentos":
+            self._guardar_departamentos(request)
+        elif accion == "guardar_cargos_unicos":
+            self._guardar_cargos_unicos(request)
+        elif accion == "guardar_jefe_directo":
+            self._guardar_jefe_directo(request)
+        elif accion == "quitar_jefe_directo":
+            self._quitar_jefe_directo(request)
+        return redirect("rrhh:panel_firmantes")
 
-        solicitud.aprobado_por = request.user
-        solicitud.fecha_resolucion = timezone.now()
-        solicitud.save(update_fields=["estado", "aprobado_por", "fecha_resolucion"])
-        messages.success(request, f"Solicitud de {solicitud.funcionario} marcada como {solicitud.get_estado_display().lower()}.")
-        return redirect("rrhh:aprobaciones")
+    def _guardar_departamentos(self, request):
+        actualizados = 0
+        for depto in Departamento.objects.all():
+            valor = request.POST.get(f"jefe_{depto.pk}") or None
+            nuevo_jefe_id = int(valor) if valor else None
+            if depto.jefe_id != nuevo_jefe_id:
+                depto.jefe_id = nuevo_jefe_id
+                depto.save()
+                actualizados += 1
+        messages.success(request, f"Se actualizó el jefe de {actualizados} departamento(s).")
+
+    def _guardar_cargos_unicos(self, request):
+        for nombre in CargoUnico.Nombre.values:
+            valor = request.POST.get(f"cargo_{nombre}") or None
+            cargo, _ = CargoUnico.objects.get_or_create(nombre=nombre)
+            nuevo_id = int(valor) if valor else None
+            if cargo.funcionario_id != nuevo_id:
+                cargo.funcionario_id = nuevo_id
+                cargo.save()
+        messages.success(request, "Cargos únicos actualizados.")
+
+    def _guardar_jefe_directo(self, request):
+        funcionario = get_object_or_404(Funcionario, pk=request.POST.get("funcionario"))
+        jefe_directo_id = request.POST.get("jefe_directo") or None
+        if jefe_directo_id and int(jefe_directo_id) == funcionario.id:
+            messages.error(request, "Una persona no puede ser su propio jefe directo.")
+            return
+        funcionario.jefe_directo_id = int(jefe_directo_id) if jefe_directo_id else None
+        funcionario.save(update_fields=["jefe_directo"])
+        if funcionario.jefe_directo_id:
+            messages.success(request, f"{funcionario} ahora firma con {funcionario.jefe_directo} como jefatura directa.")
+        else:
+            messages.success(request, f"Excepción de {funcionario} eliminada — vuelve a usar el jefe de su departamento.")
+
+    def _quitar_jefe_directo(self, request):
+        funcionario_id = request.POST.get("funcionario_id")
+        Funcionario.objects.filter(pk=funcionario_id).update(jefe_directo=None)
+        messages.success(request, "Excepción eliminada.")

@@ -3,9 +3,10 @@
 vacaciones. El saldo es una ESTIMACIÓN legal simplificada — se muestra
 siempre con una advertencia para que se confirme con RRHH."""
 
+import hashlib
 from datetime import date, timedelta
 
-from .models import FichaLaboral, SolicitudPermiso
+from .models import CargoUnico, FichaLaboral, FirmaSolicitud, SolicitudPermiso
 
 
 def calcular_antiguedad(fecha_ingreso, hoy=None):
@@ -75,45 +76,134 @@ def calcular_saldo_vacaciones(funcionario):
     }
 
 
-# --- Aprobación de jefatura ------------------------------------------------
-# Es solo un VALIDADOR dentro del sistema: la jefatura marca la solicitud
-# como aprobada/rechazada con un clic (queda registrado quién y cuándo),
-# sin firma digital ni electrónica de por medio.
+# --- Firma electrónica simple (Ley 19.799) ----------------------------------
+# Cada SolicitudPermiso lleva 4 firmas en orden: interesado, Jefa de
+# Personal, jefatura directa, Alcaldesa. No es firma avanzada ni usa
+# certificador acreditado — la atribución razonable a la persona se logra
+# pidiendo la contraseña de nuevo al firmar (no basta la sesión activa) +
+# hash del contenido + IP + timestamp, registrado en FirmaSolicitud.
 
-def es_jefatura(user):
-    """True si esta persona encabeza al menos un departamento (sin
-    importar su `rol`) — eso es lo que determina de quién puede ver
-    y resolver solicitudes, no la etiqueta de rol."""
-    funcionario = getattr(user, "funcionario", None)
-    return bool(funcionario and funcionario.departamentos_a_cargo.exists())
+def resolver_jefatura_directa(funcionario):
+    """Asignación directa, sin cadenas ni niveles de cargo: si esta
+    persona tiene un `jefe_directo` asignado a mano (excepción, ej.
+    Norma Vidal), ese es el firmante — sin seguir subiendo más allá.
+    Si no, se usa el Jefe de su departamento (o el del departamento
+    padre si el suyo no tiene uno propio, un solo salto por nivel,
+    tal como está armado el organigrama). Devuelve None si nada de
+    esto está configurado todavía — hay que bloquear el envío de la
+    solicitud con un mensaje claro, no es un error real."""
+    if funcionario.jefe_directo_id:
+        return funcionario.jefe_directo
+    depto = funcionario.departamento
+    visitados = set()
+    while depto and depto.id not in visitados:
+        if depto.jefe_id and depto.jefe_id != funcionario.id:
+            return depto.jefe
+        visitados.add(depto.id)
+        depto = depto.departamento_padre
+    return None
+
+
+def hash_solicitud(solicitud):
+    """sha256 de los campos que definen QUÉ se está firmando. No incluye
+    `estado` (cambia después de firmar) ni fecha_solicitud/fecha_resolucion
+    (metadata, no contenido) — así la firma queda ligada a la versión
+    exacta de la solicitud en ese momento."""
+    campos = "|".join(str(v) for v in [
+        solicitud.pk,
+        solicitud.funcionario_id,
+        solicitud.tipo,
+        solicitud.fecha_inicio,
+        solicitud.fecha_termino,
+        solicitud.dias_solicitados,
+        solicitud.motivo,
+    ])
+    return hashlib.sha256(campos.encode("utf-8")).hexdigest()
+
+
+def obtener_ip_cliente(request):
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR")
+
+
+def crear_firmas_para_solicitud(solicitud):
+    """Genera las 4 FirmaSolicitud pendientes al crear una solicitud.
+    Los cargos únicos (Jefa de Personal, Alcaldesa) pueden no tener
+    funcionario asignado todavía — esa firma queda pendiente sin
+    firmante hasta que se configure, sin bloquear el resto."""
+    jefa_personal = CargoUnico.objects.filter(nombre=CargoUnico.Nombre.JEFA_PERSONAL).first()
+    alcaldesa = CargoUnico.objects.filter(nombre=CargoUnico.Nombre.ALCALDESA).first()
+    jefatura_directa = resolver_jefatura_directa(solicitud.funcionario)
+
+    pasos = [
+        (1, FirmaSolicitud.RolFirmante.INTERESADO, solicitud.funcionario),
+        (2, FirmaSolicitud.RolFirmante.JEFA_PERSONAL, jefa_personal.funcionario if jefa_personal else None),
+        (3, FirmaSolicitud.RolFirmante.JEFATURA_DIRECTA, jefatura_directa),
+        (4, FirmaSolicitud.RolFirmante.ALCALDESA, alcaldesa.funcionario if alcaldesa else None),
+    ]
+    FirmaSolicitud.objects.bulk_create([
+        FirmaSolicitud(solicitud=solicitud, orden=orden, rol_firmante=rol, funcionario_firmante=firmante)
+        for orden, rol, firmante in pasos
+    ])
+
+
+def actualizar_estado_solicitud(solicitud):
+    """El estado de la solicitud es derivado de sus firmas, no se
+    setea a mano: todas firmadas -> aprobada; alguna rechazada ->
+    rechazada; si no, sigue pendiente."""
+    firmas = list(solicitud.firmas.all())
+    if any(f.estado == FirmaSolicitud.Estado.RECHAZADO for f in firmas):
+        nuevo_estado = SolicitudPermiso.Estado.RECHAZADO
+    elif firmas and all(f.estado == FirmaSolicitud.Estado.FIRMADO for f in firmas):
+        nuevo_estado = SolicitudPermiso.Estado.APROBADO
+    else:
+        nuevo_estado = SolicitudPermiso.Estado.PENDIENTE
+    if solicitud.estado != nuevo_estado:
+        solicitud.estado = nuevo_estado
+        solicitud.save(update_fields=["estado"])
+
+
+def es_su_turno(firma):
+    """Una firma solo se puede resolver si todos los pasos anteriores
+    (menor `orden`) ya están firmados — no se puede firmar fuera de
+    orden."""
+    return not firma.solicitud.firmas.filter(orden__lt=firma.orden).exclude(
+        estado=FirmaSolicitud.Estado.FIRMADO
+    ).exists()
+
+
+def puede_firmar(user, firma):
+    """Solo la persona exacta asignada a esa firma puede firmarla —
+    a propósito, sin bypass de superusuario/admin: si un tercero
+    pudiera firmar por otro, dejaría de ser una firma electrónica
+    válida bajo la Ley 19.799 (no se podría atribuir razonablemente
+    el acto a la persona)."""
+    return bool(firma.funcionario_firmante) and firma.funcionario_firmante.usuario_id == user.id
 
 
 def puede_gestionar_solicitudes(user):
-    """RRHH/admin gestionan las de cualquiera; una jefatura solo las
-    de su propio departamento."""
+    """Determina si se muestra el ítem 'Aprobaciones' en la navegación:
+    RRHH/admin/superuser siempre (ven todo), o cualquiera que participe
+    como firmante de al menos una solicitud."""
     if not user.is_authenticated:
         return False
     if user.is_superuser or user.rol in ("admin", "rrhh"):
         return True
-    return es_jefatura(user)
+    funcionario = getattr(user, "funcionario", None)
+    return bool(funcionario and funcionario.firmas.exists())
 
 
-def solicitudes_gestionables(user):
-    """Cola de solicitudes que esta persona puede ver/resolver."""
-    qs = SolicitudPermiso.objects.select_related("funcionario", "funcionario__departamento")
+def firmas_visibles_para(user):
+    """Bandeja de firmas: RRHH/admin/superuser ven todas (supervisión);
+    el resto solo las suyas."""
+    qs = FirmaSolicitud.objects.select_related(
+        "solicitud", "solicitud__funcionario", "solicitud__funcionario__departamento", "funcionario_firmante"
+    )
     if user.is_superuser or user.rol in ("admin", "rrhh"):
         return qs
     funcionario = getattr(user, "funcionario", None)
     if not funcionario:
         return qs.none()
-    return qs.filter(funcionario__departamento__jefe=funcionario)
-
-
-def puede_gestionar_esta_solicitud(user, solicitud):
-    """Igual que solicitudes_gestionables pero para un solo objeto —
-    se usa para verificar en el momento de aprobar/rechazar, sin
-    confiar solo en que la lista ya vino filtrada."""
-    if user.is_superuser or user.rol in ("admin", "rrhh"):
-        return True
-    funcionario = getattr(user, "funcionario", None)
-    return bool(funcionario) and solicitud.funcionario.departamento.jefe_id == funcionario.id
+    return qs.filter(funcionario_firmante=funcionario)

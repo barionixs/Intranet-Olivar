@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block titulo %}Panel de firmantes{% endblock %}
+
+{% block contenido %}
+<div class="encabezado-seccion">
+  <div>
+    <h1>Panel de firmantes</h1>
+    <p>Asignación directa de quién firma cada solicitud — sin cálculo automático. Solo visible para el super admin.</p>
+  </div>
+</div>
+
+<div class="tarjeta">
+  <h2>Jefes de departamento</h2>
+  <p class="ayuda">Firmante de "jefatura directa" para cada persona, según su departamento. Si un departamento no tiene jefe propio, se usa el de su departamento padre.</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="guardar_departamentos">
+    <table>
+      <thead>
+        <tr><th>Departamento</th><th>Depende de</th><th>Jefe</th></tr>
+      </thead>
+      <tbody>
+        {% for depto in departamentos %}
+        <tr>
+          <td>{{ depto.nombre }}</td>
+          <td>{{ depto.departamento_padre.nombre|default:"—" }}</td>
+          <td>
+            <select name="jefe_{{ depto.pk }}">
+              <option value="">Sin asignar</option>
+              {% for f in funcionarios %}
+              <option value="{{ f.pk }}" {% if depto.jefe_id == f.pk %}selected{% endif %}>{{ f.nombre_completo }}</option>
+              {% endfor %}
+            </select>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="acciones-form">
+      <button type="submit" class="btn btn--primario">Guardar jefes de departamento</button>
+    </div>
+  </form>
+</div>
+
+<div class="tarjeta" style="margin-top: 1.5rem;">
+  <h2>Cargos únicos</h2>
+  <p class="ayuda">Firman toda solicitud sin importar el departamento del solicitante.</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="guardar_cargos_unicos">
+    <div class="form-grupo">
+      <label for="cargo_jefa_personal">Jefa de Personal</label>
+      <select id="cargo_jefa_personal" name="cargo_jefa_personal">
+        <option value="">Sin asignar</option>
+        {% for f in funcionarios %}
+        <option value="{{ f.pk }}" {% if cargo_jefa_personal.funcionario_id == f.pk %}selected{% endif %}>{{ f.nombre_completo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-grupo">
+      <label for="cargo_alcaldesa">Alcaldesa</label>
+      <select id="cargo_alcaldesa" name="cargo_alcaldesa">
+        <option value="">Sin asignar</option>
+        {% for f in funcionarios %}
+        <option value="{{ f.pk }}" {% if cargo_alcaldesa.funcionario_id == f.pk %}selected{% endif %}>{{ f.nombre_completo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="acciones-form">
+      <button type="submit" class="btn btn--primario">Guardar cargos únicos</button>
+    </div>
+  </form>
+</div>
+
+<div class="tarjeta" style="margin-top: 1.5rem;">
+  <h2>Excepciones de jefe directo</h2>
+  <p class="ayuda">Para cuando el firmante real de una persona no es el jefe de su departamento (ej. alguien que depende funcionalmente de otra dirección).</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="guardar_jefe_directo">
+    <div class="form-grupo">
+      <label for="excepcion_funcionario">Persona</label>
+      <select id="excepcion_funcionario" name="funcionario" required>
+        <option value="">Elige una persona…</option>
+        {% for f in funcionarios %}
+        <option value="{{ f.pk }}">{{ f.nombre_completo }} ({{ f.departamento.nombre }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-grupo">
+      <label for="excepcion_jefe_directo">Firma con</label>
+      <select id="excepcion_jefe_directo" name="jefe_directo" required>
+        <option value="">Elige quién firma…</option>
+        {% for f in funcionarios %}
+        <option value="{{ f.pk }}">{{ f.nombre_completo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="acciones-form">
+      <button type="submit" class="btn btn--primario">Guardar excepción</button>
+    </div>
+  </form>
+
+  {% if excepciones %}
+  <table style="margin-top: 1.5rem;">
+    <thead>
+      <tr><th>Persona</th><th>Departamento</th><th>Firma con</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for f in excepciones %}
+      <tr>
+        <td>{{ f.nombre_completo }}</td>
+        <td>{{ f.departamento.nombre }}</td>
+        <td>{{ f.jefe_directo.nombre_completo }}</td>
+        <td class="acciones-fila">
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="quitar_jefe_directo">
+            <input type="hidden" name="funcionario_id" value="{{ f.pk }}">
+            <button type="submit" class="btn-enlace" style="color: var(--peligro);">Quitar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="ayuda" style="margin-top: 1rem;">No hay excepciones registradas todavía.</p>
+  {% endif %}
+</div>
+{% endblock %}

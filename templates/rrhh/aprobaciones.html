@@ -5,55 +5,46 @@
 <div class="encabezado-seccion">
   <div>
     <h1>Aprobaciones</h1>
-    <p>Solicitudes de vacaciones y permisos de tu equipo.{% if total_pendientes %} <strong>{{ total_pendientes }} pendiente{{ total_pendientes|pluralize }}.</strong>{% endif %}</p>
-    <p class="nota-privada">Aprobar/rechazar acá es solo un registro interno (queda quién y cuándo lo resolvió) — no reemplaza una firma ni un trámite formal.</p>
+    <p>Firmas de solicitudes de vacaciones y permisos.{% if total_pendientes %} <strong>{{ total_pendientes }} pendiente{{ total_pendientes|pluralize }}.</strong>{% endif %}</p>
+    <p class="nota-privada">Firma electrónica simple conforme a la Ley 19.799 — cada solicitud lleva 4 firmas en orden (interesado, Jefa de Personal, jefatura directa, Alcaldesa).</p>
   </div>
 </div>
 
 <div class="filtros-directorio">
   <a href="?estado=pendiente" class="btn {% if estado_filtro == 'pendiente' %}btn--primario{% else %}btn--secundario{% endif %}">Pendientes</a>
-  <a href="?estado=aprobado" class="btn {% if estado_filtro == 'aprobado' %}btn--primario{% else %}btn--secundario{% endif %}">Aprobadas</a>
+  <a href="?estado=firmado" class="btn {% if estado_filtro == 'firmado' %}btn--primario{% else %}btn--secundario{% endif %}">Firmadas</a>
   <a href="?estado=rechazado" class="btn {% if estado_filtro == 'rechazado' %}btn--primario{% else %}btn--secundario{% endif %}">Rechazadas</a>
   <a href="?estado=todas" class="btn {% if estado_filtro == 'todas' %}btn--primario{% else %}btn--secundario{% endif %}">Todas</a>
 </div>
 
 <div class="tarjeta">
-  {% if solicitudes %}
+  {% if firmas %}
   <table>
     <thead>
       <tr>
-        <th>Funcionario</th>
-        <th>Departamento</th>
+        <th>Solicitante</th>
         <th>Tipo</th>
         <th>Desde</th>
         <th>Hasta</th>
-        <th>Días</th>
-        <th>Motivo</th>
+        <th>Tu rol</th>
         <th>Estado</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
-      {% for solicitud in solicitudes %}
+      {% for firma in firmas %}
       <tr>
-        <td>{{ solicitud.funcionario.nombre_completo }}</td>
-        <td>{{ solicitud.funcionario.departamento.nombre }}</td>
-        <td>{{ solicitud.get_tipo_display }}</td>
-        <td>{{ solicitud.fecha_inicio|date:"d/m/Y" }}</td>
-        <td>{{ solicitud.fecha_termino|date:"d/m/Y" }}</td>
-        <td>{{ solicitud.dias_solicitados }}</td>
-        <td>{{ solicitud.motivo|default:"—"|truncatechars:40 }}</td>
-        <td><span class="badge-estado badge-estado--{{ solicitud.estado }}">{{ solicitud.get_estado_display }}</span></td>
+        <td>{{ firma.solicitud.funcionario.nombre_completo }}</td>
+        <td>{{ firma.solicitud.get_tipo_display }}</td>
+        <td>{{ firma.solicitud.fecha_inicio|date:"d/m/Y" }}</td>
+        <td>{{ firma.solicitud.fecha_termino|date:"d/m/Y" }}</td>
+        <td>{{ firma.get_rol_firmante_display }}</td>
+        <td><span class="badge-estado badge-estado--{{ firma.estado }}">{{ firma.get_estado_display }}</span></td>
         <td class="acciones-fila">
-          {% if solicitud.estado == "pendiente" %}
-          <form method="post" action="{% url 'rrhh:resolver_solicitud' solicitud.pk %}">
-            {% csrf_token %}
-            <button type="submit" name="accion" value="aprobar" class="btn-enlace">Aprobar</button>
-          </form>
-          <form method="post" action="{% url 'rrhh:resolver_solicitud' solicitud.pk %}">
-            {% csrf_token %}
-            <button type="submit" name="accion" value="rechazar" class="btn-enlace" style="color: var(--peligro);">Rechazar</button>
-          </form>
+          {% if firma.es_mi_turno %}
+          <a href="{% url 'rrhh:firmar_solicitud' firma.solicitud_id firma.orden %}" class="btn-enlace">Firmar</a>
+          {% else %}
+          <a href="{% url 'rrhh:detalle_solicitud' firma.solicitud_id %}">Ver</a>
           {% endif %}
         </td>
       </tr>
@@ -61,7 +52,7 @@
     </tbody>
   </table>
   {% else %}
-  <div class="vacio">No hay solicitudes {% if estado_filtro != "todas" %}en este estado{% else %}registradas{% endif %}.</div>
+  <div class="vacio">No hay firmas {% if estado_filtro != "todas" %}en este estado{% else %}registradas{% endif %}.</div>
   {% endif %}
 </div>
 {% endblock %}

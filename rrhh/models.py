@@ -84,6 +84,74 @@ class SolicitudPermiso(models.Model):
         return f"{self.get_tipo_display()} de {self.funcionario} ({self.fecha_inicio} a {self.fecha_termino})"
 
 
+class CargoUnico(models.Model):
+    """Cargos que solo tiene UNA persona en toda la municipalidad y que
+    firman solicitudes sin importar el departamento del solicitante
+    (Jefa de Personal, Alcaldesa). Configuración, no código: si cambia
+    la persona en el cargo, se actualiza esta fila, no el código. Si
+    queda sin `funcionario` asignado, solo bloquea ESE paso de firma,
+    no el sistema completo."""
+
+    class Nombre(models.TextChoices):
+        JEFA_PERSONAL = "jefa_personal", "Jefa de Personal"
+        ALCALDESA = "alcaldesa", "Alcaldesa"
+
+    nombre = models.CharField(max_length=50, choices=Nombre.choices, unique=True)
+    funcionario = models.ForeignKey(
+        Funcionario, null=True, blank=True, on_delete=models.SET_NULL, related_name="cargos_unicos"
+    )
+
+    class Meta:
+        verbose_name = "Cargo único"
+        verbose_name_plural = "Cargos únicos"
+
+    def __str__(self):
+        return f"{self.get_nombre_display()}: {self.funcionario or 'sin asignar'}"
+
+
+class FirmaSolicitud(models.Model):
+    """Un registro de firma por cada uno de los 4 firmantes de una
+    SolicitudPermiso (interesado, Jefa de Personal, jefatura directa,
+    Alcaldesa). Firma electrónica SIMPLE (Ley 19.799): no usa
+    certificador acreditado, la atribución a la persona se logra
+    pidiendo la contraseña de nuevo al momento de firmar (no basta la
+    sesión activa) + hash del contenido + IP + timestamp."""
+
+    class RolFirmante(models.TextChoices):
+        INTERESADO = "interesado", "Interesado"
+        JEFA_PERSONAL = "jefa_personal", "Jefa de Personal"
+        JEFATURA_DIRECTA = "jefatura_directa", "Jefatura directa"
+        ALCALDESA = "alcaldesa", "Alcaldesa"
+
+    class Estado(models.TextChoices):
+        PENDIENTE = "pendiente", "Pendiente"
+        FIRMADO = "firmado", "Firmado"
+        RECHAZADO = "rechazado", "Rechazado"
+
+    solicitud = models.ForeignKey(SolicitudPermiso, related_name="firmas", on_delete=models.CASCADE)
+    orden = models.PositiveSmallIntegerField(help_text="1 a 4: orden en que debe firmarse.")
+    rol_firmante = models.CharField(max_length=20, choices=RolFirmante.choices)
+    funcionario_firmante = models.ForeignKey(
+        Funcionario, null=True, blank=True, on_delete=models.SET_NULL, related_name="firmas"
+    )
+    estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.PENDIENTE)
+    fecha_firma = models.DateTimeField(null=True, blank=True)
+    ip_firma = models.GenericIPAddressField(null=True, blank=True)
+    hash_documento = models.CharField(
+        max_length=64, blank=True, help_text="sha256 del contenido de la solicitud al momento de firmar."
+    )
+    comentario = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["solicitud", "orden"]
+        unique_together = ("solicitud", "orden")
+        verbose_name = "Firma de solicitud"
+        verbose_name_plural = "Firmas de solicitud"
+
+    def __str__(self):
+        return f"Firma {self.orden} ({self.get_rol_firmante_display()}) de {self.solicitud}"
+
+
 class LicenciaMedica(models.Model):
     """A diferencia de SolicitudPermiso, una licencia médica no la
     aprueba la jefatura: la emite un médico y RRHH solo la registra."""

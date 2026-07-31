@@ -99,7 +99,7 @@
       <tbody>
         {% for permiso in permisos %}
         <tr>
-          <td>{{ permiso.get_tipo_display }}</td>
+          <td><a href="{% url 'rrhh:detalle_solicitud' permiso.pk %}">{{ permiso.get_tipo_display }}</a></td>
           <td>{{ permiso.fecha_inicio|date:"d/m/Y" }}</td>
           <td>{{ permiso.fecha_termino|date:"d/m/Y" }}</td>
           <td>{{ permiso.dias_solicitados }}</td>

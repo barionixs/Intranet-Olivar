@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block titulo %}Firmar solicitud{% endblock %}
+{% block contenedor_extra_class %} contenedor--angosto{% endblock %}
+
+{% block contenido %}
+<p><a href="{% url 'rrhh:detalle_solicitud' firma.solicitud_id %}">← Volver a la solicitud</a></p>
+
+<div class="tarjeta">
+  <h1>Firmar como {{ firma.get_rol_firmante_display }}</h1>
+  <p>
+    {{ firma.solicitud.get_tipo_display }} de <strong>{{ firma.solicitud.funcionario.nombre_completo }}</strong>,
+    del {{ firma.solicitud.fecha_inicio|date:"d/m/Y" }} al {{ firma.solicitud.fecha_termino|date:"d/m/Y" }}
+    ({{ firma.solicitud.dias_solicitados }} día{{ firma.solicitud.dias_solicitados|pluralize }}).
+  </p>
+  {% if firma.solicitud.motivo %}<p class="ayuda">Motivo: {{ firma.solicitud.motivo }}</p>{% endif %}
+
+  <p class="nota-privada">
+    Debes volver a ingresar tu contraseña: la sesión activa no es suficiente para firmar, es lo que
+    permite atribuir esta firma electrónica simple a tu persona en este instante, conforme a la Ley 19.799.
+  </p>
+
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="form-grupo">
+        {% if field.field.widget.input_type == "checkbox" %}
+          <div class="check-linea">
+            {{ field }}
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          </div>
+        {% else %}
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+        {% endif %}
+        {% for error in field.errors %}<span class="error">{{ error }}</span>{% endfor %}
+      </div>
+    {% endfor %}
+    <div class="acciones-form">
+      <button type="submit" name="accion" value="firmar" class="btn btn--primario">Firmar</button>
+      <button type="submit" name="accion" value="rechazar" class="btn btn--peligro">Rechazar</button>
+      <a href="{% url 'rrhh:detalle_solicitud' firma.solicitud_id %}" class="btn btn--secundario">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

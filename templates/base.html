@@ -28,6 +28,7 @@
       {% endif %}
       {% if request.user.is_superuser %}
       <a href="{% url 'usuarios:lista' %}" class="{% if 'usuarios' in request.resolver_match.namespaces %}activo{% endif %}">Usuarios</a>
+      <a href="{% url 'rrhh:panel_firmantes' %}" class="{% if request.resolver_match.url_name == 'panel_firmantes' %}activo{% endif %}">Firmantes</a>
       {% endif %}
     </nav>
     <div class="topbar__usuario">

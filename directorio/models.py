@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.functions import ExtractDay
 
@@ -123,6 +124,16 @@ class Funcionario(models.Model):
         help_text="Se completa cuando la persona recibe su cuenta de acceso a la intranet. "
         "Al eliminar la cuenta de usuario, esta ficha de directorio se elimina con ella.",
     )
+    jefe_directo = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="subordinados",
+        help_text="Excepción manual: quién firma como 'jefatura directa' en las solicitudes de "
+        "esta persona, si es distinto al jefe de su departamento (ej. unidades que dependen "
+        "funcionalmente de otra dirección). Dejar vacío para usar el jefe del departamento.",
+    )
 
     objects = FuncionarioManager()
 
@@ -133,6 +144,11 @@ class Funcionario(models.Model):
 
     def __str__(self):
         return self.nombre_completo
+
+    def clean(self):
+        super().clean()
+        if self.jefe_directo_id and self.jefe_directo_id == self.id:
+            raise ValidationError({"jefe_directo": "Una persona no puede ser jefe directo de sí misma."})
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
