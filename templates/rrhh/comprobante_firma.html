@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: letter; margin: 2.2cm 1.8cm; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 9.5pt; color: #3A2E22; }
+  h1 { font-family: Georgia, serif; color: #521709; font-size: 16pt; margin: 0 0 2px 0; }
+  h2 { font-family: Georgia, serif; color: #521709; font-size: 11pt; margin: 18px 0 6px 0; border-bottom: 1px solid #E7DFD0; padding-bottom: 3px; }
+  .subtitulo { color: #7A6C5C; font-size: 9.5pt; margin: 0 0 14px 0; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  td, th { padding: 4px 6px; text-align: left; vertical-align: top; }
+  .datos td:first-child { color: #7A6C5C; width: 32%; }
+  .firmas th { background-color: #FAF7F1; border-bottom: 1px solid #E7DFD0; font-size: 8.5pt; }
+  .firmas td { border-bottom: 1px solid #E7DFD0; font-size: 8.5pt; }
+  .hash { font-family: Courier, monospace; font-size: 7pt; word-break: break-all; }
+  .estado-firmado { color: #5C7A2E; font-weight: bold; }
+  .estado-rechazado { color: #B6453A; font-weight: bold; }
+  .declaracion { margin-top: 18px; padding: 10px; background-color: #FAF7F1; font-size: 8.5pt; color: #7A6C5C; }
+  .pie { margin-top: 24px; font-size: 8pt; color: #7A6C5C; text-align: center; }
+</style>
+</head>
+<body>
+  <h1>Municipalidad de Olivar</h1>
+  <p class="subtitulo">Comprobante de firma electrónica simple &mdash; Ley N.º 19.799</p>
+
+  <h2>Solicitud N.º {{ solicitud.pk }}</h2>
+  <table class="datos">
+    <tr><td>Tipo</td><td>{{ solicitud.get_tipo_display }}</td></tr>
+    <tr><td>Funcionario</td><td>{{ solicitud.funcionario.nombre_completo }} (RUT {{ solicitud.funcionario.rut }})</td></tr>
+    <tr><td>Departamento</td><td>{{ solicitud.funcionario.departamento.nombre }}</td></tr>
+    <tr><td>Período</td><td>{{ solicitud.fecha_inicio|date:"d/m/Y" }} al {{ solicitud.fecha_termino|date:"d/m/Y" }} ({{ solicitud.dias_solicitados }} día{{ solicitud.dias_solicitados|pluralize }})</td></tr>
+    {% if solicitud.motivo %}<tr><td>Motivo</td><td>{{ solicitud.motivo }}</td></tr>{% endif %}
+    <tr><td>Fecha de solicitud</td><td>{{ solicitud.fecha_solicitud|date:"d/m/Y H:i" }}</td></tr>
+    <tr><td>Estado final</td><td>{{ solicitud.get_estado_display }}</td></tr>
+  </table>
+
+  <h2>Registro de firmas</h2>
+  <table class="firmas">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Rol</th>
+        <th>Firmante</th>
+        <th>RUT</th>
+        <th>Estado</th>
+        <th>Fecha y hora</th>
+        <th>IP</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for firma in firmas %}
+      <tr>
+        <td>{{ firma.orden }}</td>
+        <td>{{ firma.get_rol_firmante_display }}</td>
+        <td>{{ firma.funcionario_firmante.nombre_completo|default:"Sin asignar" }}</td>
+        <td>{{ firma.funcionario_firmante.rut|default:"—" }}</td>
+        <td class="estado-{{ firma.estado }}">{{ firma.get_estado_display }}</td>
+        <td>{{ firma.fecha_firma|date:"d/m/Y H:i"|default:"—" }}</td>
+        <td>{{ firma.ip_firma|default:"—" }}</td>
+      </tr>
+      {% if firma.hash_documento %}
+      <tr><td></td><td colspan="6" class="hash">SHA-256: {{ firma.hash_documento }}</td></tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p class="declaracion">
+    Cada firma registrada en este documento corresponde a una <strong>firma electrónica simple</strong>
+    conforme a la Ley N.º 19.799 sobre documentos electrónicos, firma electrónica y servicios de
+    certificación de dicha firma. La atribución de cada acto a su firmante se sustenta en la
+    re-autenticación con contraseña al momento de firmar, el hash del contenido exacto de la
+    solicitud en ese instante, la dirección IP y la marca de tiempo registradas para cada firma.
+  </p>
+
+  <p class="pie">
+    Comprobante generado automáticamente por la Intranet Municipal el {% now "d/m/Y H:i" %}.
+    Documento de respaldo y auditoría &mdash; no reemplaza la solicitud original.
+  </p>
+</body>
+</html>

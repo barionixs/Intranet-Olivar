@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block titulo %}Solicitud de {{ solicitud.funcionario.nombre_completo }}{% endblock %}
-{% block contenedor_extra_class %} contenedor--angosto{% endblock %}
 
 {% block contenido %}
 <p><a href="{% url 'rrhh:aprobaciones' %}">← Volver a Aprobaciones</a></p>
@@ -33,36 +32,50 @@
   <h2>Firmas</h2>
   <p class="nota-privada">Firma electrónica simple conforme a la Ley 19.799 — cada firma requiere volver a ingresar la contraseña, no basta con la sesión activa.</p>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Orden</th>
-        <th>Rol</th>
-        <th>Firmante</th>
-        <th>Estado</th>
-        <th>Fecha</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for firma in firmas %}
-      <tr>
-        <td>{{ firma.orden }}</td>
-        <td>{{ firma.get_rol_firmante_display }}</td>
-        <td>{{ firma.funcionario_firmante|default:"Sin asignar" }}</td>
-        <td><span class="badge-estado badge-estado--{{ firma.estado }}">{{ firma.get_estado_display }}</span></td>
-        <td>{{ firma.fecha_firma|date:"d/m/Y H:i"|default:"—" }}</td>
-        <td class="acciones-fila">
-          {% if firma.es_mi_turno %}
-          <a href="{% url 'rrhh:firmar_solicitud' solicitud.pk firma.orden %}" class="btn-enlace">Firmar</a>
-          {% endif %}
-        </td>
-      </tr>
-      {% if firma.comentario %}
-      <tr><td></td><td colspan="5" class="ayuda">"{{ firma.comentario }}"</td></tr>
-      {% endif %}
-      {% endfor %}
-    </tbody>
-  </table>
+  <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Orden</th>
+          <th>Rol</th>
+          <th>Firmante</th>
+          <th>Estado</th>
+          <th>Fecha</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for firma in firmas %}
+        <tr>
+          <td>{{ firma.orden }}</td>
+          <td>{{ firma.get_rol_firmante_display }}</td>
+          <td>{{ firma.funcionario_firmante|default:"Sin asignar" }}</td>
+          <td><span class="badge-estado badge-estado--{{ firma.estado }}">{{ firma.get_estado_display }}</span></td>
+          <td>{{ firma.fecha_firma|date:"d/m/Y H:i"|default:"—" }}</td>
+          <td class="acciones-fila">
+            {% if firma.es_mi_turno %}
+            <a href="{% url 'rrhh:firmar_solicitud' solicitud.pk firma.orden %}" class="btn-enlace">Firmar</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% if firma.comentario %}
+        <tr><td></td><td colspan="5" class="ayuda">"{{ firma.comentario }}"</td></tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if solicitud.comprobante_firma %}
+  <p style="margin-top: 1rem;">
+    <a href="{{ solicitud.comprobante_firma.url }}" class="btn btn--secundario" target="_blank">Descargar comprobante de firma (PDF)</a>
+  </p>
+  {% endif %}
+
+  {% if request.user.is_superuser %}
+  <p style="margin-top: 1rem;">
+    <a href="{% url 'rrhh:eliminar_solicitud' solicitud.pk %}" class="btn-enlace" style="color: var(--peligro);">Eliminar solicitud</a>
+  </p>
+  {% endif %}
 </div>
 {% endblock %}

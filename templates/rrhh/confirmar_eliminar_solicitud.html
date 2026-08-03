@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block titulo %}Eliminar solicitud{% endblock %}
+{% block contenedor_extra_class %} contenedor--angosto{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta">
+  <h1>¿Eliminar esta solicitud?</h1>
+  <p>{{ solicitud.get_tipo_display }} de {{ solicitud.funcionario.nombre_completo }} ({{ solicitud.fecha_inicio|date:"d/m/Y" }} al {{ solicitud.fecha_termino|date:"d/m/Y" }}).</p>
+  <p>Esta acción no se puede deshacer y también elimina el registro de sus firmas.</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="acciones-form">
+      <button type="submit" class="btn btn--peligro">Sí, eliminar</button>
+      <a href="{% url 'rrhh:detalle_solicitud' solicitud.pk %}" class="btn btn--secundario">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

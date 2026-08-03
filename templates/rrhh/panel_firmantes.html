@@ -51,15 +51,6 @@
     {% csrf_token %}
     <input type="hidden" name="accion" value="guardar_cargos_unicos">
     <div class="form-grupo">
-      <label for="cargo_jefa_personal">Jefa de Personal</label>
-      <select id="cargo_jefa_personal" name="cargo_jefa_personal">
-        <option value="">Sin asignar</option>
-        {% for f in funcionarios %}
-        <option value="{{ f.pk }}" {% if cargo_jefa_personal.funcionario_id == f.pk %}selected{% endif %}>{{ f.nombre_completo }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="form-grupo">
       <label for="cargo_alcaldesa">Alcaldesa</label>
       <select id="cargo_alcaldesa" name="cargo_alcaldesa">
         <option value="">Sin asignar</option>

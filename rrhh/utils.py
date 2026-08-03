@@ -4,7 +4,12 @@ vacaciones. El saldo es una ESTIMACIÓN legal simplificada — se muestra
 siempre con una advertencia para que se confirme con RRHH."""
 
 import hashlib
+import io
 from datetime import date, timedelta
+
+from django.core.files.base import ContentFile
+from django.template.loader import render_to_string
+from xhtml2pdf import pisa
 
 from .models import CargoUnico, FichaLaboral, FirmaSolicitud, SolicitudPermiso
 
@@ -77,11 +82,11 @@ def calcular_saldo_vacaciones(funcionario):
 
 
 # --- Firma electrónica simple (Ley 19.799) ----------------------------------
-# Cada SolicitudPermiso lleva 4 firmas en orden: interesado, Jefa de
-# Personal, jefatura directa, Alcaldesa. No es firma avanzada ni usa
-# certificador acreditado — la atribución razonable a la persona se logra
-# pidiendo la contraseña de nuevo al firmar (no basta la sesión activa) +
-# hash del contenido + IP + timestamp, registrado en FirmaSolicitud.
+# Cada SolicitudPermiso lleva 3 firmas en orden: interesado, jefatura
+# directa, Alcaldesa. No es firma avanzada ni usa certificador
+# acreditado — la atribución razonable a la persona se logra pidiendo
+# la contraseña de nuevo al firmar (no basta la sesión activa) + hash
+# del contenido + IP + timestamp, registrado en FirmaSolicitud.
 
 def resolver_jefatura_directa(funcionario):
     """Asignación directa, sin cadenas ni niveles de cargo: si esta
@@ -129,24 +134,42 @@ def obtener_ip_cliente(request):
 
 
 def crear_firmas_para_solicitud(solicitud):
-    """Genera las 4 FirmaSolicitud pendientes al crear una solicitud.
-    Los cargos únicos (Jefa de Personal, Alcaldesa) pueden no tener
-    funcionario asignado todavía — esa firma queda pendiente sin
-    firmante hasta que se configure, sin bloquear el resto."""
-    jefa_personal = CargoUnico.objects.filter(nombre=CargoUnico.Nombre.JEFA_PERSONAL).first()
+    """Genera las 3 FirmaSolicitud pendientes al crear una solicitud.
+    El cargo único (Alcaldesa) puede no tener funcionario asignado
+    todavía — esa firma queda pendiente sin firmante hasta que se
+    configure, sin bloquear el resto."""
     alcaldesa = CargoUnico.objects.filter(nombre=CargoUnico.Nombre.ALCALDESA).first()
     jefatura_directa = resolver_jefatura_directa(solicitud.funcionario)
 
     pasos = [
         (1, FirmaSolicitud.RolFirmante.INTERESADO, solicitud.funcionario),
-        (2, FirmaSolicitud.RolFirmante.JEFA_PERSONAL, jefa_personal.funcionario if jefa_personal else None),
-        (3, FirmaSolicitud.RolFirmante.JEFATURA_DIRECTA, jefatura_directa),
-        (4, FirmaSolicitud.RolFirmante.ALCALDESA, alcaldesa.funcionario if alcaldesa else None),
+        (2, FirmaSolicitud.RolFirmante.JEFATURA_DIRECTA, jefatura_directa),
+        (3, FirmaSolicitud.RolFirmante.ALCALDESA, alcaldesa.funcionario if alcaldesa else None),
     ]
     FirmaSolicitud.objects.bulk_create([
         FirmaSolicitud(solicitud=solicitud, orden=orden, rol_firmante=rol, funcionario_firmante=firmante)
         for orden, rol, firmante in pasos
     ])
+
+
+def generar_comprobante_firma(solicitud):
+    """PDF de respaldo/auditoría con el detalle de las 4 firmas (no es
+    la firma en sí, esa ya quedó registrada en cada FirmaSolicitud).
+    Se genera una sola vez, al momento exacto en que la solicitud
+    queda aprobada."""
+    firmas = list(
+        solicitud.firmas.select_related("funcionario_firmante").order_by("orden")
+    )
+    html = render_to_string(
+        "rrhh/comprobante_firma.html", {"solicitud": solicitud, "firmas": firmas}
+    )
+    buffer = io.BytesIO()
+    resultado = pisa.CreatePDF(src=html, dest=buffer)
+    if resultado.err:
+        return
+    solicitud.comprobante_firma.save(
+        f"solicitud_{solicitud.pk}.pdf", ContentFile(buffer.getvalue()), save=True
+    )
 
 
 def actualizar_estado_solicitud(solicitud):
@@ -163,6 +186,8 @@ def actualizar_estado_solicitud(solicitud):
     if solicitud.estado != nuevo_estado:
         solicitud.estado = nuevo_estado
         solicitud.save(update_fields=["estado"])
+        if nuevo_estado == SolicitudPermiso.Estado.APROBADO:
+            generar_comprobante_firma(solicitud)
 
 
 def es_su_turno(firma):

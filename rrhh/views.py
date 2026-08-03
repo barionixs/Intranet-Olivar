@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views import View
-from django.views.generic import CreateView, DetailView, ListView, TemplateView
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView
 
 from directorio.models import Departamento, Funcionario
 from directorio.views import SoloSuperAdminMixin
@@ -126,6 +126,20 @@ class SolicitudDetalleView(LoginRequiredMixin, DetailView):
         return contexto
 
 
+class SolicitudPermisoDeleteView(SoloSuperAdminMixin, DeleteView):
+    model = SolicitudPermiso
+    template_name = "rrhh/confirmar_eliminar_solicitud.html"
+    success_url = reverse_lazy("rrhh:aprobaciones")
+    context_object_name = "solicitud"
+
+    def post(self, request, *args, **kwargs):
+        solicitud = self.get_object()
+        descripcion = str(solicitud)
+        respuesta = super().post(request, *args, **kwargs)
+        messages.success(request, f"Solicitud eliminada: {descripcion}.")
+        return respuesta
+
+
 class FirmarSolicitudView(LoginRequiredMixin, View):
     def dispatch(self, request, *args, **kwargs):
         self.firma = get_object_or_404(
@@ -217,7 +231,6 @@ class PanelFirmantesView(SoloSuperAdminMixin, View):
         return {
             "departamentos": Departamento.objects.select_related("jefe", "departamento_padre").order_by("nombre"),
             "funcionarios": Funcionario.objects.order_by("nombre_completo"),
-            "cargo_jefa_personal": CargoUnico.objects.filter(nombre=CargoUnico.Nombre.JEFA_PERSONAL).first(),
             "cargo_alcaldesa": CargoUnico.objects.filter(nombre=CargoUnico.Nombre.ALCALDESA).first(),
             "excepciones": Funcionario.objects.filter(jefe_directo__isnull=False)
                 .select_related("jefe_directo", "departamento").order_by("nombre_completo"),

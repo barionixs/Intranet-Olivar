@@ -74,6 +74,11 @@ class SolicitudPermiso(models.Model):
     )
     fecha_solicitud = models.DateTimeField(auto_now_add=True)
     fecha_resolucion = models.DateTimeField(null=True, blank=True)
+    comprobante_firma = models.FileField(
+        upload_to="comprobantes_firma/%Y/",
+        blank=True,
+        help_text="PDF de respaldo generado automáticamente al completarse las 4 firmas.",
+    )
 
     class Meta:
         ordering = ["-fecha_solicitud"]
@@ -87,13 +92,12 @@ class SolicitudPermiso(models.Model):
 class CargoUnico(models.Model):
     """Cargos que solo tiene UNA persona en toda la municipalidad y que
     firman solicitudes sin importar el departamento del solicitante
-    (Jefa de Personal, Alcaldesa). Configuración, no código: si cambia
-    la persona en el cargo, se actualiza esta fila, no el código. Si
-    queda sin `funcionario` asignado, solo bloquea ESE paso de firma,
-    no el sistema completo."""
+    (Alcaldesa). Configuración, no código: si cambia la persona en el
+    cargo, se actualiza esta fila, no el código. Si queda sin
+    `funcionario` asignado, solo bloquea ESE paso de firma, no el
+    sistema completo."""
 
     class Nombre(models.TextChoices):
-        JEFA_PERSONAL = "jefa_personal", "Jefa de Personal"
         ALCALDESA = "alcaldesa", "Alcaldesa"
 
     nombre = models.CharField(max_length=50, choices=Nombre.choices, unique=True)
@@ -110,16 +114,15 @@ class CargoUnico(models.Model):
 
 
 class FirmaSolicitud(models.Model):
-    """Un registro de firma por cada uno de los 4 firmantes de una
-    SolicitudPermiso (interesado, Jefa de Personal, jefatura directa,
-    Alcaldesa). Firma electrónica SIMPLE (Ley 19.799): no usa
-    certificador acreditado, la atribución a la persona se logra
-    pidiendo la contraseña de nuevo al momento de firmar (no basta la
-    sesión activa) + hash del contenido + IP + timestamp."""
+    """Un registro de firma por cada uno de los 3 firmantes de una
+    SolicitudPermiso (interesado, jefatura directa, Alcaldesa). Firma
+    electrónica SIMPLE (Ley 19.799): no usa certificador acreditado, la
+    atribución a la persona se logra pidiendo la contraseña de nuevo al
+    momento de firmar (no basta la sesión activa) + hash del contenido
+    + IP + timestamp."""
 
     class RolFirmante(models.TextChoices):
         INTERESADO = "interesado", "Interesado"
-        JEFA_PERSONAL = "jefa_personal", "Jefa de Personal"
         JEFATURA_DIRECTA = "jefatura_directa", "Jefatura directa"
         ALCALDESA = "alcaldesa", "Alcaldesa"
 
@@ -129,7 +132,7 @@ class FirmaSolicitud(models.Model):
         RECHAZADO = "rechazado", "Rechazado"
 
     solicitud = models.ForeignKey(SolicitudPermiso, related_name="firmas", on_delete=models.CASCADE)
-    orden = models.PositiveSmallIntegerField(help_text="1 a 4: orden en que debe firmarse.")
+    orden = models.PositiveSmallIntegerField(help_text="1 a 3: orden en que debe firmarse.")
     rol_firmante = models.CharField(max_length=20, choices=RolFirmante.choices)
     funcionario_firmante = models.ForeignKey(
         Funcionario, null=True, blank=True, on_delete=models.SET_NULL, related_name="firmas"

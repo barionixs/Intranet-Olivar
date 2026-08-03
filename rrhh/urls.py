@@ -9,6 +9,11 @@ urlpatterns = [
     path("solicitar/", views.SolicitudPermisoCreateView.as_view(), name="solicitar_permiso"),
     path("solicitudes/<int:pk>/", views.SolicitudDetalleView.as_view(), name="detalle_solicitud"),
     path(
+        "solicitudes/<int:pk>/eliminar/",
+        views.SolicitudPermisoDeleteView.as_view(),
+        name="eliminar_solicitud",
+    ),
+    path(
         "solicitudes/<int:solicitud_id>/firmar/<int:orden>/",
         views.FirmarSolicitudView.as_view(),
         name="firmar_solicitud",
