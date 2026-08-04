@@ -1,0 +1,28 @@
+{% if barra_cumpleañeros %}
+<div class="tarjeta tarjeta--mini">
+  <h3>Cumpleaños del mes</h3>
+  <ul class="lista-mini-cumple">
+    {% for persona in barra_cumpleañeros %}
+    <li{% if persona.dia == barra_dia_hoy %} class="lista-mini-cumple__item--hoy"{% endif %}>
+      <span class="lista-mini-cumple__dia">{{ persona.dia }}</span>
+      <span class="lista-mini-cumple__nombre">{{ persona.nombre_completo }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if barra_comunicados and not ocultar_comunicados %}
+<div class="tarjeta tarjeta--mini">
+  <h3>Últimos comunicados</h3>
+  <ul class="lista-mini-comunicados">
+    {% for comunicado in barra_comunicados %}
+    <li>
+      <a href="{% url 'comunicados:lista' %}">{{ comunicado.titulo }}</a>
+      <span class="lista-mini-comunicados__fecha">{{ comunicado.fecha_publicacion|date:"d/m/Y" }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <a href="{% url 'comunicados:lista' %}" class="ver-todos">Ver todos →</a>
+</div>
+{% endif %}

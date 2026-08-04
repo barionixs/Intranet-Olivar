@@ -47,7 +47,11 @@
         <div class="alerta alerta--{{ message.tags }}">{{ message }}</div>
       {% endfor %}
     {% endif %}
-    {% block contenido %}{% endblock %}
+    <div class="diseno-con-barra">
+      <div class="contenido-principal">
+        {% block contenido %}{% endblock %}
+      </div><aside class="barra-lateral">{% block barra_lateral %}{% endblock %}</aside>
+    </div>
   </main>
 </body>
 </html>

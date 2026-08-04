@@ -19,7 +19,7 @@ from .utils import (
     crear_firmas_para_solicitud,
     es_su_turno,
     firmas_visibles_para,
-    hash_solicitud,
+    hash_firma,
     obtener_ip_cliente,
     puede_firmar,
     puede_gestionar_solicitudes,
@@ -126,6 +126,28 @@ class SolicitudDetalleView(LoginRequiredMixin, DetailView):
         return contexto
 
 
+class VerificarFirmaView(DetailView):
+    """Verificación pública de una solicitud, sin iniciar sesión: quien
+    reciba el comprobante puede confirmar que es auténtico ingresando el
+    código impreso en el PDF. Se busca por `codigo_verificacion` (no
+    adivinable), nunca por el folio interno, para que nadie pueda
+    recorrer solicitudes ajenas probando números."""
+
+    model = SolicitudPermiso
+    template_name = "rrhh/verificar_firma.html"
+    context_object_name = "solicitud"
+    slug_field = "codigo_verificacion"
+    slug_url_kwarg = "codigo"
+
+    def get_queryset(self):
+        return SolicitudPermiso.objects.select_related("funcionario", "funcionario__departamento")
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto["firmas"] = self.object.firmas.select_related("funcionario_firmante").order_by("orden")
+        return contexto
+
+
 class SolicitudPermisoDeleteView(SoloSuperAdminMixin, DeleteView):
     model = SolicitudPermiso
     template_name = "rrhh/confirmar_eliminar_solicitud.html"
@@ -166,13 +188,13 @@ class FirmarSolicitudView(LoginRequiredMixin, View):
             if not request.user.check_password(form.cleaned_data["password"]):
                 form.add_error("password", "Contraseña incorrecta.")
             else:
+                self.firma.fecha_firma = timezone.now()
+                self.firma.ip_firma = obtener_ip_cliente(request)
                 if accion == "rechazar":
                     self.firma.estado = FirmaSolicitud.Estado.RECHAZADO
                 else:
                     self.firma.estado = FirmaSolicitud.Estado.FIRMADO
-                    self.firma.hash_documento = hash_solicitud(self.firma.solicitud)
-                self.firma.fecha_firma = timezone.now()
-                self.firma.ip_firma = obtener_ip_cliente(request)
+                    self.firma.hash_documento = hash_firma(self.firma)
                 self.firma.comentario = form.cleaned_data.get("comentario", "")
                 self.firma.save()
                 actualizar_estado_solicitud(self.firma.solicitud)

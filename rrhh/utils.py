@@ -133,6 +133,23 @@ def obtener_ip_cliente(request):
     return request.META.get("REMOTE_ADDR")
 
 
+def hash_firma(firma):
+    """sha256 de ESTA firma en particular, no solo del documento: liga
+    el hash del contenido a quién firmó, cuándo y desde qué IP. Sin
+    esto, las 3 firmas de una misma solicitud (interesado, jefatura,
+    Alcaldesa) tendrían el mismo hash por firmar el mismo documento —
+    correcto para probar que todos vieron la misma versión, pero no
+    sirve para distinguir una firma de otra. Requiere que `fecha_firma`
+    e `ip_firma` ya estén asignados en la instancia antes de llamarla."""
+    campos = "|".join(str(v) for v in [
+        hash_solicitud(firma.solicitud),
+        firma.funcionario_firmante_id,
+        firma.fecha_firma,
+        firma.ip_firma,
+    ])
+    return hashlib.sha256(campos.encode("utf-8")).hexdigest()
+
+
 def crear_firmas_para_solicitud(solicitud):
     """Genera las 3 FirmaSolicitud pendientes al crear una solicitud.
     El cargo único (Alcaldesa) puede no tener funcionario asignado

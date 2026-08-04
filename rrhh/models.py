@@ -1,7 +1,16 @@
+import secrets
+
 from django.conf import settings
 from django.db import models
 
 from directorio.models import Funcionario
+
+
+def generar_codigo_verificacion():
+    """Código público, no adivinable, para que cualquiera con el PDF en
+    mano pueda verificar la solicitud sin iniciar sesión (no es el folio
+    interno: ese es correlativo y permitiría probar números al azar)."""
+    return f"{secrets.token_hex(2).upper()}-{secrets.token_hex(2).upper()}"
 
 # Todos los modelos de esta app cuelgan de Funcionario (no de Usuario):
 # así la ficha, permisos, licencias, liquidaciones y documentos quedan
@@ -77,7 +86,14 @@ class SolicitudPermiso(models.Model):
     comprobante_firma = models.FileField(
         upload_to="comprobantes_firma/%Y/",
         blank=True,
-        help_text="PDF de respaldo generado automáticamente al completarse las 4 firmas.",
+        help_text="PDF de respaldo generado automáticamente al completarse las 3 firmas.",
+    )
+    codigo_verificacion = models.CharField(
+        max_length=9,
+        unique=True,
+        editable=False,
+        default=generar_codigo_verificacion,
+        help_text="Código público para verificar la autenticidad de esta solicitud sin iniciar sesión.",
     )
 
     class Meta:
@@ -118,8 +134,8 @@ class FirmaSolicitud(models.Model):
     SolicitudPermiso (interesado, jefatura directa, Alcaldesa). Firma
     electrónica SIMPLE (Ley 19.799): no usa certificador acreditado, la
     atribución a la persona se logra pidiendo la contraseña de nuevo al
-    momento de firmar (no basta la sesión activa) + hash del contenido
-    + IP + timestamp."""
+    momento de firmar (no basta la sesión activa) + un hash propio de
+    cada firma (documento + firmante + fecha + IP) + timestamp."""
 
     class RolFirmante(models.TextChoices):
         INTERESADO = "interesado", "Interesado"
@@ -141,7 +157,10 @@ class FirmaSolicitud(models.Model):
     fecha_firma = models.DateTimeField(null=True, blank=True)
     ip_firma = models.GenericIPAddressField(null=True, blank=True)
     hash_documento = models.CharField(
-        max_length=64, blank=True, help_text="sha256 del contenido de la solicitud al momento de firmar."
+        max_length=64,
+        blank=True,
+        help_text="sha256 único de esta firma: liga el contenido de la solicitud a quién firmó, "
+        "cuándo y desde qué IP. Distinto para cada una de las firmas, aunque compartan solicitud.",
     )
     comentario = models.TextField(blank=True)
 

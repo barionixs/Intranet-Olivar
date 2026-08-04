@@ -60,7 +60,7 @@
         <td>{{ firma.ip_firma|default:"—" }}</td>
       </tr>
       {% if firma.hash_documento %}
-      <tr><td></td><td colspan="6" class="hash">SHA-256: {{ firma.hash_documento }}</td></tr>
+      <tr><td></td><td colspan="6" class="hash">Hash de esta firma (SHA-256): {{ firma.hash_documento }}</td></tr>
       {% endif %}
       {% endfor %}
     </tbody>
@@ -70,13 +70,16 @@
     Cada firma registrada en este documento corresponde a una <strong>firma electrónica simple</strong>
     conforme a la Ley N.º 19.799 sobre documentos electrónicos, firma electrónica y servicios de
     certificación de dicha firma. La atribución de cada acto a su firmante se sustenta en la
-    re-autenticación con contraseña al momento de firmar, el hash del contenido exacto de la
-    solicitud en ese instante, la dirección IP y la marca de tiempo registradas para cada firma.
+    re-autenticación con contraseña al momento de firmar y un hash SHA-256 propio de cada firma,
+    que combina el contenido exacto de la solicitud con el firmante, la fecha/hora y la dirección
+    IP registradas — por eso cada firma tiene un hash distinto aunque compartan la misma solicitud.
   </p>
 
   <p class="pie">
     Comprobante generado automáticamente por la Intranet Municipal el {% now "d/m/Y H:i" %}.
-    Documento de respaldo y auditoría &mdash; no reemplaza la solicitud original.
+    Documento de respaldo y auditoría &mdash; no reemplaza la solicitud original.<br>
+    Verifica su autenticidad en la Intranet, sección "Verificar firma", con el código:
+    <strong>{{ solicitud.codigo_verificacion }}</strong>
   </p>
 </body>
 </html>

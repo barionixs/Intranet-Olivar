@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block titulo %}Verificación de firma{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta" style="max-width: 480px;">
+  <p class="badge-estado badge-estado--firmado">✓ Documento auténtico</p>
+  <h1>Solicitud verificada</h1>
+  <p class="ayuda">Código {{ solicitud.codigo_verificacion }}</p>
+
+  <dl>
+    <dt>Tipo</dt>
+    <dd>{{ solicitud.get_tipo_display }}</dd>
+
+    <dt>Funcionario</dt>
+    <dd>{{ solicitud.funcionario.nombre_completo }}</dd>
+
+    <dt>Departamento</dt>
+    <dd>{{ solicitud.funcionario.departamento.nombre }}</dd>
+
+    <dt>Período</dt>
+    <dd>{{ solicitud.fecha_inicio|date:"d/m/Y" }} al {{ solicitud.fecha_termino|date:"d/m/Y" }} ({{ solicitud.dias_solicitados }} día{{ solicitud.dias_solicitados|pluralize }})</dd>
+
+    <dt>Estado</dt>
+    <dd><span class="badge-estado badge-estado--{{ solicitud.estado }}">{{ solicitud.get_estado_display }}</span></dd>
+  </dl>
+</div>
+
+<div class="tarjeta" style="margin-top: 1.5rem;">
+  <h2>Firmas registradas</h2>
+  <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Orden</th>
+          <th>Rol</th>
+          <th>Firmante</th>
+          <th>Estado</th>
+          <th>Fecha y hora</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for firma in firmas %}
+        <tr>
+          <td>{{ firma.orden }}</td>
+          <td>{{ firma.get_rol_firmante_display }}</td>
+          <td>{{ firma.funcionario_firmante.nombre_completo|default:"Sin asignar" }}</td>
+          <td><span class="badge-estado badge-estado--{{ firma.estado }}">{{ firma.get_estado_display }}</span></td>
+          <td>{{ firma.fecha_firma|date:"d/m/Y H:i"|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="ayuda" style="margin-top: 1rem;">
+    Firma electrónica simple conforme a la Ley 19.799. Esta página confirma que la solicitud y sus firmas existen
+    en los registros de la Municipalidad de Olivar tal como se muestran aquí.
+  </p>
+</div>
+{% endblock %}

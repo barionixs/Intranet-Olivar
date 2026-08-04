@@ -41,7 +41,11 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--fondo);
+  background-color: var(--fondo);
+  background-image: url("../img/patron-olivo.svg"), url("../img/patron-olivo.svg");
+  background-repeat: repeat-y, repeat-y;
+  background-position: left top, right top;
+  background-size: 90px 300px, 90px 300px;
   color: var(--texto);
   font-family: var(--fuente-ui);
   font-size: 16px;
@@ -131,6 +135,61 @@ a:hover { color: var(--terracota-oscuro); }
 }
 
 .contenedor--angosto { max-width: 480px; }
+
+.diseno-con-barra {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.diseno-con-barra:has(.barra-lateral:not(:empty)) {
+  grid-template-columns: minmax(0, 1fr) 300px;
+}
+
+.barra-lateral {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.barra-lateral:empty { display: none; }
+
+@media (max-width: 900px) {
+  .diseno-con-barra:has(.barra-lateral:not(:empty)) { grid-template-columns: 1fr; }
+}
+
+.tarjeta--mini { padding: 1.25rem 1.25rem 1.4rem; }
+.tarjeta--mini h3 { font-size: 1rem; margin-bottom: 0.85rem; }
+
+.lista-mini-cumple, .lista-mini-comunicados {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.lista-mini-cumple li { display: flex; align-items: baseline; gap: 0.65rem; font-size: 0.88rem; }
+
+.lista-mini-cumple__dia {
+  font-family: var(--fuente-display);
+  font-weight: 600;
+  color: var(--terracota-oscuro);
+  min-width: 1.6em;
+}
+
+.lista-mini-cumple__item--hoy .lista-mini-cumple__nombre { font-weight: 700; color: var(--oliva-oscuro); }
+
+.lista-mini-comunicados li { display: flex; flex-direction: column; gap: 0.1rem; font-size: 0.88rem; }
+
+.lista-mini-comunicados a { color: var(--texto); text-decoration: none; font-weight: 600; }
+.lista-mini-comunicados a:hover { color: var(--oliva-oscuro); }
+
+.lista-mini-comunicados__fecha { font-size: 0.78rem; color: var(--texto-tenue); }
+
+.ver-todos { display: inline-block; margin-top: 1rem; font-size: 0.85rem; font-weight: 600; }
 
 .tarjeta {
   background: var(--superficie);
