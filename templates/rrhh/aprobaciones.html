@@ -18,7 +18,7 @@
 </div>
 
 <div class="tarjeta">
-  {% if firmas %}
+  {% if solicitudes %}
   <table>
     <thead>
       <tr>
@@ -26,25 +26,35 @@
         <th>Tipo</th>
         <th>Desde</th>
         <th>Hasta</th>
-        <th>Tu rol</th>
+        <th>Progreso de firma</th>
         <th>Estado</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
-      {% for firma in firmas %}
+      {% for solicitud in solicitudes %}
       <tr>
-        <td>{{ firma.solicitud.funcionario.nombre_completo }}</td>
-        <td>{{ firma.solicitud.get_tipo_display }}</td>
-        <td>{{ firma.solicitud.fecha_inicio|date:"d/m/Y" }}</td>
-        <td>{{ firma.solicitud.fecha_termino|date:"d/m/Y" }}</td>
-        <td>{{ firma.get_rol_firmante_display }}</td>
-        <td><span class="badge-estado badge-estado--{{ firma.estado }}">{{ firma.get_estado_display }}</span></td>
+        <td>{{ solicitud.funcionario.nombre_completo }}</td>
+        <td>{{ solicitud.get_tipo_display }}</td>
+        <td>{{ solicitud.fecha_inicio|date:"d/m/Y" }}</td>
+        <td>{{ solicitud.fecha_termino|date:"d/m/Y" }}</td>
+        <td class="progreso-firma">
+          {% for firma in solicitud.firmas.all %}
+          <span class="badge-estado badge-estado--{{ firma.estado }}">
+            {% if firma.funcionario_firmante %}
+              {{ firma.funcionario_firmante.nombre_completo }}
+            {% else %}
+              {{ firma.get_rol_firmante_display }} (sin asignar)
+            {% endif %}
+          </span>
+          {% endfor %}
+        </td>
+        <td><span class="badge-estado badge-estado--{{ solicitud.estado }}">{{ solicitud.get_estado_display }}</span></td>
         <td class="acciones-fila">
-          {% if firma.es_mi_turno %}
-          <a href="{% url 'rrhh:firmar_solicitud' firma.solicitud_id firma.orden %}" class="btn-enlace">Firmar</a>
+          {% if solicitud.firma_pendiente_mia %}
+          <a href="{% url 'rrhh:firmar_solicitud' solicitud.pk solicitud.firma_pendiente_mia.orden %}" class="btn-enlace">Firmar</a>
           {% else %}
-          <a href="{% url 'rrhh:detalle_solicitud' firma.solicitud_id %}">Ver</a>
+          <a href="{% url 'rrhh:detalle_solicitud' solicitud.pk %}">Ver</a>
           {% endif %}
         </td>
       </tr>
@@ -52,7 +62,7 @@
     </tbody>
   </table>
   {% else %}
-  <div class="vacio">No hay firmas {% if estado_filtro != "todas" %}en este estado{% else %}registradas{% endif %}.</div>
+  <div class="vacio">No hay solicitudes {% if estado_filtro != "todas" %}en este estado{% else %}registradas{% endif %}.</div>
   {% endif %}
 </div>
 {% endblock %}

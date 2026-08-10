@@ -162,7 +162,7 @@ a:hover { color: var(--terracota-oscuro); }
 .tarjeta--mini { padding: 1.25rem 1.25rem 1.4rem; }
 .tarjeta--mini h3 { font-size: 1rem; margin-bottom: 0.85rem; }
 
-.lista-mini-cumple, .lista-mini-comunicados {
+.lista-mini-comunicados {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -170,17 +170,6 @@ a:hover { color: var(--terracota-oscuro); }
   flex-direction: column;
   gap: 0.65rem;
 }
-
-.lista-mini-cumple li { display: flex; align-items: baseline; gap: 0.65rem; font-size: 0.88rem; }
-
-.lista-mini-cumple__dia {
-  font-family: var(--fuente-display);
-  font-weight: 600;
-  color: var(--terracota-oscuro);
-  min-width: 1.6em;
-}
-
-.lista-mini-cumple__item--hoy .lista-mini-cumple__nombre { font-weight: 700; color: var(--oliva-oscuro); }
 
 .lista-mini-comunicados li { display: flex; flex-direction: column; gap: 0.1rem; font-size: 0.88rem; }
 
@@ -536,6 +525,8 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
 .badge-estado--aprobado, .badge-estado--registrada, .badge-estado--aprobada, .badge-estado--firmado { background: #EEF3E6; color: var(--exito); }
 .badge-estado--rechazado, .badge-estado--rechazada { background: var(--peligro-fondo); color: var(--peligro); }
 .badge-estado--en_tramite { background: #EAF1F4; color: #2E5F70; }
+
+.progreso-firma { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 
 .lista-archivos {
   list-style: none;

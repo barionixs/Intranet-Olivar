@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.exceptions import PermissionDenied
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -206,9 +207,20 @@ class FirmarSolicitudView(LoginRequiredMixin, View):
 
 
 class AprobacionesListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
-    model = FirmaSolicitud
+    """Una fila por solicitud, no por firma: antes se repetía el nombre
+    del solicitante hasta 3 veces (una por cada firma de su cadena). El
+    filtro de estado usa `SolicitudPermiso.estado`, que ya es el mismo
+    derivado de las firmas (pendiente/aprobado/rechazado)."""
+
+    model = SolicitudPermiso
     template_name = "rrhh/aprobaciones.html"
-    context_object_name = "firmas"
+    context_object_name = "solicitudes"
+
+    MAPA_ESTADO = {
+        "pendiente": SolicitudPermiso.Estado.PENDIENTE,
+        "firmado": SolicitudPermiso.Estado.APROBADO,
+        "rechazado": SolicitudPermiso.Estado.RECHAZADO,
+    }
 
     def test_func(self):
         return puede_gestionar_solicitudes(self.request.user)
@@ -220,23 +232,38 @@ class AprobacionesListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         return redirect("inicio")
 
     def get_queryset(self):
-        qs = firmas_visibles_para(self.request.user).order_by("-solicitud__fecha_solicitud", "orden")
+        solicitud_ids = firmas_visibles_para(self.request.user).values_list(
+            "solicitud_id", flat=True
+        ).distinct()
+        qs = SolicitudPermiso.objects.filter(id__in=solicitud_ids).select_related(
+            "funcionario"
+        ).prefetch_related(
+            Prefetch(
+                "firmas",
+                queryset=FirmaSolicitud.objects.select_related("funcionario_firmante").order_by("orden"),
+            )
+        ).order_by("-fecha_solicitud")
         self.estado = self.request.GET.get("estado", "pendiente")
         if self.estado != "todas":
-            qs = qs.filter(estado=self.estado)
+            qs = qs.filter(estado=self.MAPA_ESTADO.get(self.estado, SolicitudPermiso.Estado.PENDIENTE))
         return qs
 
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
         contexto["estado_filtro"] = self.estado
-        contexto["total_pendientes"] = firmas_visibles_para(self.request.user).filter(
-            estado=FirmaSolicitud.Estado.PENDIENTE
-        ).count()
-        for firma in contexto["firmas"]:
-            firma.es_mi_turno = (
-                firma.estado == FirmaSolicitud.Estado.PENDIENTE
-                and puede_firmar(self.request.user, firma)
-                and es_su_turno(firma)
+        contexto["total_pendientes"] = SolicitudPermiso.objects.filter(
+            id__in=firmas_visibles_para(self.request.user).values_list("solicitud_id", flat=True),
+            estado=SolicitudPermiso.Estado.PENDIENTE,
+        ).distinct().count()
+        for solicitud in contexto["solicitudes"]:
+            solicitud.firma_pendiente_mia = next(
+                (
+                    firma for firma in solicitud.firmas.all()
+                    if firma.estado == FirmaSolicitud.Estado.PENDIENTE
+                    and puede_firmar(self.request.user, firma)
+                    and es_su_turno(firma)
+                ),
+                None,
             )
         return contexto
 
