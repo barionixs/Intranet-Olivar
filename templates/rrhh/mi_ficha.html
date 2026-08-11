@@ -70,25 +70,24 @@
   <div class="tarjeta" id="vacaciones">
     <h2>Vacaciones y permisos</h2>
 
-    {% if saldo_vacaciones %}
+    {% for saldo in saldos_permiso %}
+    <p style="margin-top:1rem;"><strong>{{ saldo.etiqueta }}</strong></p>
     <div class="fila-saldo">
       <div class="metrica">
-        <span class="numero">{{ saldo_vacaciones.saldo }}</span>
+        <span class="numero">{{ saldo.disponibles }}</span>
         <span class="etiqueta">Días disponibles</span>
       </div>
       <div class="metrica">
-        <span class="numero">{{ saldo_vacaciones.usados }}</span>
+        <span class="numero">{{ saldo.usados }}</span>
         <span class="etiqueta">Días usados</span>
       </div>
       <div class="metrica">
-        <span class="numero">{{ saldo_vacaciones.correspondientes }}</span>
-        <span class="etiqueta">Total correspondiente</span>
+        <span class="numero">{{ saldo.cupo }}</span>
+        <span class="etiqueta">Cupo anual</span>
       </div>
     </div>
-    <p class="nota-privada">Estimación según tu tipo de contrato y antigüedad ({{ saldo_vacaciones.dias_por_año }} días hábiles/año) — confirma el número exacto con RRHH.</p>
-    {% else %}
-    <p class="nota-privada">Aún no se puede estimar tu saldo: falta cargar tu ficha laboral.</p>
-    {% endif %}
+    {% endfor %}
+    <p class="nota-privada">Cupo anual fijo, se reinicia cada 1 de enero. Solo cuenta lo aprobado — lo pendiente o rechazado no descuenta.</p>
 
     <p style="margin-top:1.25rem;"><a href="{% url 'rrhh:solicitar_permiso' %}" class="btn btn--primario">+ Solicitar vacaciones o permiso</a></p>
 

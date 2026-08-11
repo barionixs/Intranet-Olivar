@@ -32,6 +32,13 @@
   <h2>Firmas</h2>
   <p class="nota-privada">Firma electrónica simple conforme a la Ley 19.799 — cada firma requiere volver a ingresar la contraseña, no basta con la sesión activa.</p>
 
+  {% if mi_turno_pendiente %}
+  <div style="background: var(--fondo); border: 1px solid var(--borde); border-radius: var(--radio); padding: 1rem 1.25rem; margin-bottom: 1rem;">
+    <p style="margin: 0 0 0.75rem 0;">Te toca firmar como <strong>{{ mi_turno_pendiente.get_rol_firmante_display }}</strong>.</p>
+    <a href="{% url 'rrhh:firmar_solicitud' solicitud.pk mi_turno_pendiente.orden %}" class="btn btn--primario">Firmar esta solicitud</a>
+  </div>
+  {% endif %}
+
   <div style="overflow-x: auto;">
     <table>
       <thead>
@@ -54,7 +61,7 @@
           <td>{{ firma.fecha_firma|date:"d/m/Y H:i"|default:"—" }}</td>
           <td class="acciones-fila">
             {% if firma.es_mi_turno %}
-            <a href="{% url 'rrhh:firmar_solicitud' solicitud.pk firma.orden %}" class="btn-enlace">Firmar</a>
+            <a href="{% url 'rrhh:firmar_solicitud' solicitud.pk firma.orden %}" class="btn btn--terracota">Firmar</a>
             {% endif %}
           </td>
         </tr>
@@ -66,11 +73,16 @@
     </table>
   </div>
 
-  {% if solicitud.comprobante_firma %}
-  <p style="margin-top: 1rem;">
+  <p style="margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+    {% if tiene_formato_institucional %}
+    <a href="{% url 'rrhh:formato_permiso' solicitud.pk %}" class="btn btn--secundario" target="_blank">
+      {% if solicitud.documento_permiso %}Descargar formato institucional (PDF){% else %}Ver formato institucional (vista previa){% endif %}
+    </a>
+    {% endif %}
+    {% if solicitud.comprobante_firma %}
     <a href="{{ solicitud.comprobante_firma.url }}" class="btn btn--secundario" target="_blank">Descargar comprobante de firma (PDF)</a>
+    {% endif %}
   </p>
-  {% endif %}
 
   {% if request.user.is_superuser %}
   <p style="margin-top: 1rem;">

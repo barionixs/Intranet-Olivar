@@ -7,6 +7,13 @@
   <h1>Solicitar vacaciones o permiso</h1>
   <p>Tu jefatura directa recibirá esta solicitud para aprobarla o rechazarla.</p>
 
+  {% if saldos_permiso %}
+  <p class="nota-privada">
+    Saldo disponible este año:
+    {% for saldo in saldos_permiso %}{{ saldo.etiqueta }}: {{ saldo.disponibles }}/{{ saldo.cupo }}{% if not forloop.last %} · {% endif %}{% endfor %}
+  </p>
+  {% endif %}
+
   <form method="post">
     {% csrf_token %}
     {% for field in form %}

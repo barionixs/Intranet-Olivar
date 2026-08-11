@@ -88,6 +88,12 @@ class SolicitudPermiso(models.Model):
         blank=True,
         help_text="PDF de respaldo generado automáticamente al completarse las 3 firmas.",
     )
+    documento_permiso = models.FileField(
+        upload_to="documentos_permiso/%Y/",
+        blank=True,
+        help_text="PDF con el formato institucional (Solicitud de Permiso Administrativo y "
+        "Feriado Legal), generado automáticamente al completarse las 3 firmas.",
+    )
     codigo_verificacion = models.CharField(
         max_length=9,
         unique=True,

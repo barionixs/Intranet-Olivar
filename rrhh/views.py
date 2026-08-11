@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Prefetch
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -16,7 +17,6 @@ from .models import CargoUnico, FichaLaboral, FirmaSolicitud, SolicitudPermiso
 from .utils import (
     actualizar_estado_solicitud,
     calcular_antiguedad,
-    calcular_saldo_vacaciones,
     crear_firmas_para_solicitud,
     es_su_turno,
     firmas_visibles_para,
@@ -24,7 +24,11 @@ from .utils import (
     obtener_ip_cliente,
     puede_firmar,
     puede_gestionar_solicitudes,
+    puede_ver_solicitud,
+    renderizar_documento_permiso,
     resolver_jefatura_directa,
+    resumen_saldos,
+    tiene_formato_institucional,
 )
 
 
@@ -51,7 +55,7 @@ class MiFichaView(LoginRequiredMixin, TemplateView):
             contexto["antiguedad_meses"] = meses
 
         contexto["jefatura"] = funcionario.departamento.jefe
-        contexto["saldo_vacaciones"] = calcular_saldo_vacaciones(funcionario)
+        contexto["saldos_permiso"] = resumen_saldos(funcionario)
         contexto["liquidaciones"] = funcionario.liquidaciones.all()
         contexto["permisos"] = funcionario.permisos.all()
         contexto["licencias"] = funcionario.licencias_medicas.all()
@@ -74,6 +78,16 @@ class SolicitudPermisoCreateView(LoginRequiredMixin, CreateView):
             messages.error(request, "Tu cuenta no está vinculada a una ficha de funcionario.")
             return redirect("inicio")
         return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["funcionario"] = self.request.user.funcionario
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto["saldos_permiso"] = resumen_saldos(self.request.user.funcionario)
+        return contexto
 
     def form_valid(self, form):
         funcionario = self.request.user.funcionario
@@ -106,10 +120,7 @@ class SolicitudDetalleView(LoginRequiredMixin, DetailView):
 
     def get_object(self, queryset=None):
         solicitud = super().get_object(queryset)
-        funcionario = getattr(self.request.user, "funcionario", None)
-        es_el_interesado = funcionario is not None and solicitud.funcionario_id == funcionario.id
-        es_firmante = funcionario is not None and solicitud.firmas.filter(funcionario_firmante=funcionario).exists()
-        if not (es_el_interesado or es_firmante or puede_gestionar_solicitudes(self.request.user)):
+        if not puede_ver_solicitud(self.request.user, solicitud):
             raise PermissionDenied("No puedes ver esta solicitud.")
         return solicitud
 
@@ -117,6 +128,7 @@ class SolicitudDetalleView(LoginRequiredMixin, DetailView):
         contexto = super().get_context_data(**kwargs)
         firmas = list(self.object.firmas.select_related("funcionario_firmante").order_by("orden"))
         contexto["firmas"] = firmas
+        contexto["tiene_formato_institucional"] = tiene_formato_institucional(self.object)
         funcionario = getattr(self.request.user, "funcionario", None)
         for firma in firmas:
             firma.es_mi_turno = (
@@ -124,7 +136,38 @@ class SolicitudDetalleView(LoginRequiredMixin, DetailView):
                 and puede_firmar(self.request.user, firma)
                 and es_su_turno(firma)
             )
+        contexto["mi_turno_pendiente"] = next((f for f in firmas if f.es_mi_turno), None)
         return contexto
+
+
+class FormatoPermisoAdministrativoView(LoginRequiredMixin, View):
+    """Vista previa/descarga del formato institucional en cualquier
+    momento: si la solicitud ya está aprobada se sirve la versión final
+    guardada (`documento_permiso`); si aún está en trámite, se genera al
+    vuelo con el estado actual de las firmas (las que faltan se ven como
+    "PENDIENTE", sin bloquear la vista previa)."""
+
+    def get(self, request, *args, **kwargs):
+        solicitud = get_object_or_404(
+            SolicitudPermiso.objects.select_related("funcionario", "funcionario__departamento"),
+            pk=kwargs["pk"],
+        )
+        if not puede_ver_solicitud(request.user, solicitud):
+            raise PermissionDenied("No puedes ver esta solicitud.")
+        if not tiene_formato_institucional(solicitud):
+            raise PermissionDenied("Este tipo de solicitud no tiene formato institucional.")
+
+        if solicitud.documento_permiso:
+            contenido = solicitud.documento_permiso.read()
+        else:
+            contenido = renderizar_documento_permiso(solicitud)
+            if contenido is None:
+                messages.error(request, "No se pudo generar el documento.")
+                return redirect("rrhh:detalle_solicitud", pk=solicitud.pk)
+
+        respuesta = HttpResponse(contenido, content_type="application/pdf")
+        respuesta["Content-Disposition"] = f'inline; filename="permiso_{solicitud.pk}.pdf"'
+        return respuesta
 
 
 class VerificarFirmaView(DetailView):

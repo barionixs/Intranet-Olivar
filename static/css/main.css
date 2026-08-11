@@ -314,6 +314,9 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
 .btn--peligro { background: var(--peligro); color: #fff; }
 .btn--peligro:hover { background: #99392F; }
 
+.btn--terracota { background: var(--terracota); color: #fff; }
+.btn--terracota:hover { background: var(--terracota-oscuro); color: #fff; }
+
 .acciones-form { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
 
 .paginacion { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap; }

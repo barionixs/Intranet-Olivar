@@ -32,6 +32,10 @@ DEBUG = env.bool('DJANGO_DEBUG', default=False)
 
 ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=[])
 
+# Base para armar URLs absolutas fuera de una request (ej. el link que
+# va dentro del QR de verificación en los PDF institucionales).
+SITE_URL = env.str('DJANGO_SITE_URL', default='http://localhost:8000')
+
 
 # Application definition
 

@@ -1,14 +1,27 @@
 """Cálculos que se derivan de otros datos en vez de guardarse aparte
 (así nadie tiene que actualizarlos a mano): antigüedad y saldo de
-vacaciones. El saldo es una ESTIMACIÓN legal simplificada — se muestra
-siempre con una advertencia para que se confirme con RRHH."""
+días administrativos/vacaciones (cupo anual fijo, ver CUPO_DIAS_ANUAL)."""
 
 import hashlib
 import io
-from datetime import date, timedelta
+import subprocess
+import tempfile
+from datetime import date
+from pathlib import Path
 
+import qrcode
+from django.conf import settings
 from django.core.files.base import ContentFile
+from django.db.models import Sum
+from django.template.defaultfilters import date as date_filter
 from django.template.loader import render_to_string
+from django.urls import reverse
+from docx import Document
+from docx.oxml import OxmlElement, parse_xml
+from docx.oxml.ns import qn
+from docx.shared import Inches, Mm, Pt
+from docx.text.paragraph import Paragraph
+from PIL import Image
 from xhtml2pdf import pisa
 
 from .models import CargoUnico, FichaLaboral, FirmaSolicitud, SolicitudPermiso
@@ -27,58 +40,59 @@ def calcular_antiguedad(fecha_ingreso, hoy=None):
     return max(años, 0), max(meses, 0)
 
 
-def _dias_legales_por_año(tipo_contrato, años_antiguedad):
-    """Días hábiles de feriado legal por año, según tipo de contrato.
-    Aproximación:
-    - Honorarios: sin derecho legal a vacaciones (0).
-    - Planta/Contrata (Estatuto Administrativo, Ley 18.834 art. 103):
-      15 días con <15 años, 20 días con 15-19 años, 25 días con 20+ años.
-    - Código del Trabajo (art. 68): 15 días base + 1 día extra por cada
-      3 años trabajados para el mismo empleador después de 10 años."""
-    if tipo_contrato == FichaLaboral.TipoContrato.HONORARIOS:
-        return 0
-    if tipo_contrato == FichaLaboral.TipoContrato.CODIGO_TRABAJO:
-        extra = max(0, (años_antiguedad - 10) // 3)
-        return 15 + extra
-    # Planta o Contrata
-    if años_antiguedad >= 20:
-        return 25
-    if años_antiguedad >= 15:
-        return 20
-    return 15
+# Cupo anual fijo por funcionario, igual para todos independiente de
+# antigüedad o tipo de contrato (reemplaza el cálculo por antigüedad que
+# existía antes solo como estimación). "Sin goce" y "Otro" no tienen
+# cupo — no son parte de la asignación fija, así que no se limitan acá.
+CUPO_DIAS_ANUAL = {
+    SolicitudPermiso.Tipo.ADMINISTRATIVO: 6,
+    SolicitudPermiso.Tipo.VACACIONES: 15,
+}
 
 
-def calcular_saldo_vacaciones(funcionario):
-    """Devuelve un dict con la estimación de saldo de vacaciones, o
-    None si el funcionario no tiene ficha laboral cargada todavía.
-
-    El feriado legal es un derecho ANUAL, no algo que se acumula sin
-    límite con los años trabajados — por eso "correspondientes" es el
-    cupo del período actual (últimos 12 meses), no la tasa multiplicada
-    por toda la antigüedad (eso daría números absurdos, ej. 100+ días)."""
-    try:
-        ficha = funcionario.ficha_laboral
-    except FichaLaboral.DoesNotExist:
-        return None
-
-    años, _ = calcular_antiguedad(ficha.fecha_ingreso)
-    dias_por_año = _dias_legales_por_año(ficha.tipo_contrato, años)
-
-    hace_un_año = date.today() - timedelta(days=365)
-    usados = SolicitudPermiso.objects.filter(
+def dias_usados_en_año(funcionario, tipo, año):
+    """Suma de días de solicitudes APROBADAS de ese tipo cuyo inicio
+    cae en `año` — solo lo aprobado descuenta cupo; lo pendiente o
+    rechazado no, así no hace falta "devolver" días si se rechaza."""
+    total = SolicitudPermiso.objects.filter(
         funcionario=funcionario,
-        tipo=SolicitudPermiso.Tipo.VACACIONES,
+        tipo=tipo,
         estado=SolicitudPermiso.Estado.APROBADO,
-        fecha_inicio__gte=hace_un_año,
-    ).values_list("dias_solicitados", flat=True)
-    usados_total = sum(usados)
+        fecha_inicio__year=año,
+    ).aggregate(total=Sum("dias_solicitados"))["total"]
+    return total or 0
 
-    return {
-        "dias_por_año": dias_por_año,
-        "correspondientes": dias_por_año,
-        "usados": usados_total,
-        "saldo": dias_por_año - usados_total,
-    }
+
+def dias_disponibles(funcionario, tipo, año=None):
+    """Cupo restante de ese tipo para `año` (el actual si no se indica),
+    o None si ese tipo no tiene cupo fijo (sin goce, otro) — sin límite
+    que hacer cumplir en ese caso."""
+    cupo = CUPO_DIAS_ANUAL.get(tipo)
+    if cupo is None:
+        return None
+    año = año or date.today().year
+    return cupo - dias_usados_en_año(funcionario, tipo, año)
+
+
+def resumen_saldos(funcionario, año=None):
+    """Saldo de cada tipo con cupo fijo, para mostrar en Mi Ficha. Se
+    reinicia solo cada 1 de enero: no hay un contador que resetear a
+    mano, el cupo restante siempre se calcula sobre las solicitudes
+    aprobadas de `año`, así que un año nuevo parte automáticamente
+    en cupo completo."""
+    año = año or date.today().year
+    etiquetas = dict(SolicitudPermiso.Tipo.choices)
+    resumen = []
+    for tipo, cupo in CUPO_DIAS_ANUAL.items():
+        usados = dias_usados_en_año(funcionario, tipo, año)
+        resumen.append({
+            "tipo": tipo,
+            "etiqueta": etiquetas[tipo],
+            "cupo": cupo,
+            "usados": usados,
+            "disponibles": cupo - usados,
+        })
+    return resumen
 
 
 # --- Firma electrónica simple (Ley 19.799) ----------------------------------
@@ -189,6 +203,426 @@ def generar_comprobante_firma(solicitud):
     )
 
 
+# --- Formato institucional (Solicitud de Permiso Administrativo) ------------
+# Se rellena EL MISMO archivo Word institucional (plantillas_word/PERMISOS
+# ADMINISTRATIVOS.docx: logos, escudo y pie de página incluidos) en vez de
+# recrear su diseño en HTML — así el resultado es idéntico al formato
+# oficial, solo con los campos completados. En cada campo de firma del
+# documento se agrega el detalle de la firma electrónica simple de esa
+# persona (nombre, RUT, fecha/hora y hash) en vez de una firma manuscrita.
+# El .docx rellenado se convierte a PDF con LibreOffice en modo headless
+# (instalado en el servidor para este fin) para poder verlo/descargarlo
+# como los demás documentos del sistema.
+
+PLANTILLA_PERMISO_ADMINISTRATIVO = settings.BASE_DIR / "plantillas_word" / "PERMISOS ADMINISTRATIVOS.docx"
+SELLO_MARCA_AGUA = settings.BASE_DIR / "plantillas_word" / "Sello_Informatica_Servicios_Generales.svg"
+
+TIPOS_CON_FORMATO_INSTITUCIONAL = {
+    SolicitudPermiso.Tipo.ADMINISTRATIVO,
+    SolicitudPermiso.Tipo.SIN_GOCE,
+    SolicitudPermiso.Tipo.VACACIONES,
+}
+
+# Fila (0-indexada) de la tabla de tipos de permiso en la plantilla que
+# corresponde a cada `Tipo` de SolicitudPermiso.
+_FILA_TIPO_EN_PLANTILLA = {
+    SolicitudPermiso.Tipo.ADMINISTRATIVO: 0,  # Permiso con sueldo (Art. 108)
+    SolicitudPermiso.Tipo.SIN_GOCE: 1,        # Permiso sin sueldo (Art. 109)
+    SolicitudPermiso.Tipo.VACACIONES: 2,      # Feriado legal (Arts. 101-103)
+}
+
+# Texto exacto (una vez sin espacios de relleno) de cada etiqueta de firma
+# en la plantilla, con el rol de FirmaSolicitud que le corresponde y el
+# margen izquierdo/derecho del bloque que se agrega debajo — medido
+# directamente sobre la línea "____" de esa firma en el documento
+# original (plantillas_word/PERMISOS ADMINISTRATIVOS.docx renderizado),
+# no estimado, para que el bloque quede contenido en el mismo ancho que
+# ocupa esa línea en vez de extenderse por todo el ancho de la página.
+_ETIQUETAS_FIRMA_EN_PLANTILLA = {
+    "FIRMA INTERESADO (A)": (FirmaSolicitud.RolFirmante.INTERESADO, Pt(288), Pt(16)),
+    "V° B° JEFE DIRECTO": (FirmaSolicitud.RolFirmante.JEFATURA_DIRECTA, Pt(0), Pt(323)),
+    "A L C A L D E S A": (FirmaSolicitud.RolFirmante.ALCALDESA, Pt(288), Pt(16)),
+}
+
+
+def tiene_formato_institucional(solicitud):
+    """El formulario en papel solo cubre permiso con goce (Art. 108),
+    sin goce (Art. 109) y feriado legal — "Otro" no tiene un campo al
+    que mapear, así que ese tipo no ofrece este formato."""
+    return solicitud.tipo in TIPOS_CON_FORMATO_INSTITUCIONAL
+
+
+def _fecha_en_letras(fecha):
+    return date_filter(fecha, "d \\d\\e F \\d\\e Y")
+
+
+def _texto_firma_electronica(firma):
+    """Líneas que se imprimen bajo cada campo de firma del documento,
+    o el estado pendiente/rechazado si aún no se ha resuelto.
+
+    Deliberadamente NO incluye el RUT ni el hash de la firma — solo
+    nombre, cargo, fecha/hora e institución — para no imprimir datos
+    sensibles en un documento que puede circular en papel; el RUT y el
+    hash siguen disponibles para quien corresponda en el comprobante de
+    firma y en la verificación pública por código."""
+    if firma is None or firma.estado == FirmaSolicitud.Estado.PENDIENTE:
+        if firma is not None and firma.funcionario_firmante:
+            return [f"Pendiente de firma de {firma.funcionario_firmante.nombre_completo}"]
+        return ["Pendiente — sin firmante asignado"]
+    if firma.estado == FirmaSolicitud.Estado.RECHAZADO:
+        texto = (
+            f"Rechazado por {firma.funcionario_firmante.nombre_completo} "
+            f"el {date_filter(firma.fecha_firma, 'd/m/Y H:i')}"
+        )
+        if firma.comentario:
+            texto += f' — "{firma.comentario}"'
+        return [texto]
+    return [
+        f"Firmado por: {firma.funcionario_firmante.nombre_completo}",
+        firma.funcionario_firmante.get_cargo_display(),
+        date_filter(firma.fecha_firma, "d/m/Y H:i"),
+        "Ilustre Municipalidad de Olivar",
+    ]
+
+
+def _completar_campo(cell, valor):
+    """Escribe `valor` al final del último run de la celda, para
+    conservar el formato (negrita, fuente) que ya trae la plantilla en
+    ese campo en vez de reemplazarlo por texto con formato por defecto."""
+    if valor is None or valor == "":
+        return
+    parrafo = cell.paragraphs[0]
+    if parrafo.runs:
+        parrafo.runs[-1].text += str(valor)
+    else:
+        parrafo.add_run(str(valor))
+
+
+def _insertar_parrafo_antes(parrafo, lineas, indent_izquierdo, indent_derecho):
+    """python-docx no trae `insert_paragraph_before`: se arma el <w:p> a
+    mano y se inserta antes de la línea "____" de esa firma — como una
+    firma manuscrita real, que va ARRIBA de la línea, no debajo de la
+    etiqueta. Los márgenes izquierdo/derecho confinan el bloque al mismo
+    ancho que ocupa esa línea, en vez de todo el ancho de la página.
+    `lineas` es una lista: cada elemento va en su propia línea dentro
+    del mismo párrafo (nombre, cargo, fecha, institución por separado)."""
+    nuevo_p = OxmlElement("w:p")
+    parrafo._p.addprevious(nuevo_p)
+    nuevo_parrafo = Paragraph(nuevo_p, parrafo._parent)
+    nuevo_parrafo.paragraph_format.left_indent = indent_izquierdo
+    nuevo_parrafo.paragraph_format.right_indent = indent_derecho
+    for i, linea in enumerate(lineas):
+        run = nuevo_parrafo.add_run(linea)
+        run.italic = True
+        run.font.size = Pt(8)
+        if i < len(lineas) - 1:
+            run.add_break()
+    return nuevo_parrafo
+
+
+def _generar_qr(datos):
+    qr = qrcode.QRCode(border=1, box_size=6)
+    qr.add_data(datos)
+    qr.make(fit=True)
+    imagen = qr.make_image(fill_color="black", back_color="white")
+    buffer = io.BytesIO()
+    imagen.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
+
+
+def _quitar_bordes_tabla(tabla):
+    tbl_pr = tabla._tbl.tblPr
+    bordes = OxmlElement("w:tblBorders")
+    for lado in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        el = OxmlElement(f"w:{lado}")
+        el.set(qn("w:val"), "nil")
+        bordes.append(el)
+    tbl_pr.append(bordes)
+
+
+def _agregar_pie_verificacion(documento, solicitud):
+    """Agrega al pie de página (sin tocar el pie institucional que ya
+    trae la plantilla) un QR que enlaza a la verificación pública de
+    esta solicitud — mismo código/vista que ya usa el sistema para
+    "Verificar firma" — junto a una glosa breve de la Ley 19.799, igual
+    que en el comprobante de firma."""
+    url_verificacion = settings.SITE_URL.rstrip("/") + reverse(
+        "verificar_firma", args=[solicitud.codigo_verificacion]
+    )
+    qr = _generar_qr(url_verificacion)
+
+    footer = documento.sections[0].footer
+    tabla = footer.add_table(rows=1, cols=2, width=Inches(6.0))
+    _quitar_bordes_tabla(tabla)
+    tabla.columns[0].width = Inches(0.9)
+    tabla.columns[1].width = Inches(5.1)
+
+    celda_qr = tabla.rows[0].cells[0]
+    celda_qr.paragraphs[0].add_run().add_picture(qr, width=Inches(0.8))
+
+    celda_texto = tabla.rows[0].cells[1]
+    run = celda_texto.paragraphs[0].add_run(
+        "Firma electrónica simple conforme a la Ley N.º 19.799 sobre documentos electrónicos, firma "
+        "electrónica y servicios de certificación de dicha firma. Escanee el código para verificar la "
+        f"autenticidad de este documento y el estado de sus firmas, o ingrese el código "
+        f"{solicitud.codigo_verificacion} en la Intranet, sección \"Verificar firma\"."
+    )
+    run.italic = True
+    run.font.size = Pt(6.5)
+
+
+def rellenar_documento_permiso(solicitud):
+    """Devuelve los bytes del .docx institucional con los datos de la
+    solicitud y el estado ACTUAL de sus firmas ya completados — útil
+    tanto para la vista previa en cualquier momento como para la
+    versión final guardada al aprobarse."""
+    firmas = {
+        firma.rol_firmante: firma
+        for firma in solicitud.firmas.select_related("funcionario_firmante").all()
+    }
+    documento = Document(str(PLANTILLA_PERMISO_ADMINISTRATIVO))
+    for seccion in documento.sections:
+        seccion.page_width = Mm(216)
+        seccion.page_height = Mm(330)
+    fecha_doc = solicitud.fecha_resolucion or solicitud.fecha_solicitud
+
+    for parrafo in documento.paragraphs:
+        if parrafo.text.startswith("FECHA ") and parrafo.runs:
+            parrafo.runs[0].text = f"FECHA {date_filter(fecha_doc, 'd/m/Y')}"
+            for extra in parrafo.runs[1:]:
+                extra.text = ""
+        elif parrafo.text.startswith("OLIVAR,") and len(parrafo.runs) > 1:
+            parrafo.runs[-1].text = f" {_fecha_en_letras(fecha_doc)}"
+
+    tabla_datos = documento.tables[0]
+    try:
+        grado = solicitud.funcionario.ficha_laboral.grado
+    except FichaLaboral.DoesNotExist:
+        grado = ""
+    _completar_campo(tabla_datos.rows[0].cells[1], solicitud.funcionario.nombre_completo)
+    _completar_campo(tabla_datos.rows[1].cells[1], solicitud.funcionario.rut)
+    _completar_campo(tabla_datos.rows[2].cells[1], grado)
+    _completar_campo(
+        tabla_datos.rows[3].cells[1],
+        f"{solicitud.funcionario.get_cargo_display()} · {solicitud.funcionario.departamento.nombre}",
+    )
+
+    fila_tipo = _FILA_TIPO_EN_PLANTILLA.get(solicitud.tipo)
+    if fila_tipo is not None:
+        _completar_campo(documento.tables[1].rows[fila_tipo].cells[1], solicitud.dias_solicitados)
+
+    tabla_fechas = documento.tables[2]
+    _completar_campo(tabla_fechas.rows[0].cells[1], date_filter(solicitud.fecha_inicio, "d/m/Y"))
+    _completar_campo(tabla_fechas.rows[1].cells[1], date_filter(solicitud.fecha_termino, "d/m/Y"))
+
+    _completar_campo(documento.tables[3].rows[0].cells[1], solicitud.motivo)
+
+    seccion = documento.sections[0]
+    ancho_texto = seccion.page_width - seccion.left_margin - seccion.right_margin
+
+    anterior = None
+    id_marca_agua = 9000
+    for parrafo in list(documento.paragraphs):
+        info = _ETIQUETAS_FIRMA_EN_PLANTILLA.get(parrafo.text.strip())
+        if info and anterior is not None:
+            rol, indent_izq, indent_der = info
+            firma = firmas.get(rol)
+            _insertar_parrafo_antes(
+                anterior, _texto_firma_electronica(firma), indent_izq, indent_der
+            )
+            if firma is not None and firma.estado == FirmaSolicitud.Estado.FIRMADO:
+                id_marca_agua += 1
+                ancho_columna = ancho_texto - indent_izq - indent_der
+                _agregar_marca_agua(parrafo, id_marca_agua, indent_izq, ancho_columna)
+        anterior = parrafo
+
+    _agregar_pie_verificacion(documento, solicitud)
+
+    buffer = io.BytesIO()
+    documento.save(buffer)
+    return buffer.getvalue()
+
+
+def _ruta_libreoffice():
+    for candidato in (
+        r"C:\Program Files\LibreOffice\program\soffice.exe",
+        r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+        "soffice",
+    ):
+        if candidato == "soffice" or Path(candidato).exists():
+            return candidato
+    return None
+
+
+def convertir_docx_a_pdf(contenido_docx):
+    """Convierte con LibreOffice en modo headless, en un perfil de
+    usuario temporal propio por llamada — así conversiones simultáneas
+    (dos personas viendo la vista previa a la vez) no compiten por el
+    mismo perfil de LibreOffice y se bloqueen entre sí."""
+    soffice = _ruta_libreoffice()
+    if not soffice:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        docx_path = tmp_path / "documento.docx"
+        docx_path.write_bytes(contenido_docx)
+        perfil = (tmp_path / "perfil_lo").as_posix()
+        try:
+            resultado = subprocess.run(
+                [
+                    soffice, "--headless", "--norestore",
+                    f"-env:UserInstallation=file:///{perfil}",
+                    "--convert-to", "pdf", "--outdir", str(tmp_path), str(docx_path),
+                ],
+                capture_output=True, timeout=60,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return None
+        pdf_path = tmp_path / "documento.pdf"
+        if resultado.returncode != 0 or not pdf_path.exists():
+            return None
+        return pdf_path.read_bytes()
+
+
+# --- Marca de agua (sello institucional) sobre cada firma estampada --------
+
+_marca_agua_cacheada = None
+
+
+def _convertir_svg_a_png(ruta_svg):
+    soffice = _ruta_libreoffice()
+    if not soffice:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        perfil = (tmp_path / "perfil_lo").as_posix()
+        try:
+            resultado = subprocess.run(
+                [
+                    soffice, "--headless", "--norestore",
+                    f"-env:UserInstallation=file:///{perfil}",
+                    "--convert-to", "png:draw_png_Export", "--outdir", str(tmp_path), str(ruta_svg),
+                ],
+                capture_output=True, timeout=60,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return None
+        png_path = tmp_path / (Path(ruta_svg).stem + ".png")
+        if resultado.returncode != 0 or not png_path.exists():
+            return None
+        return png_path.read_bytes()
+
+
+def _preparar_marca_agua(imagen_png_bytes, opacidad=0.16):
+    """El sello se exporta con fondo blanco opaco (LibreOffice no
+    conserva transparencia de SVG al exportar a PNG desde Draw): se
+    reconstruye el canal alfa a partir de qué tan oscuro es cada píxel
+    (el trazo negro queda con la opacidad pedida, el fondo blanco queda
+    transparente), para que funcione como marca de agua y no como un
+    sello opaco que tape el texto de la firma."""
+    imagen = Image.open(io.BytesIO(imagen_png_bytes)).convert("RGBA")
+    gris = imagen.convert("L")
+    alpha_max = int(255 * opacidad)
+    alpha = gris.point(lambda l: int((255 - l) / 255 * alpha_max))
+    resultado = Image.new("RGBA", imagen.size, (0, 0, 0, 0))
+    resultado.putalpha(alpha)
+    resultado = resultado.resize((500, 500), Image.LANCZOS)
+    buffer = io.BytesIO()
+    resultado.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _obtener_marca_agua():
+    """Se genera una sola vez por proceso (conversión SVG→PNG vía
+    LibreOffice de por medio): el sello institucional no cambia entre
+    solicitudes, así que no vale la pena volver a convertirlo en cada
+    documento generado."""
+    global _marca_agua_cacheada
+    if _marca_agua_cacheada is None and SELLO_MARCA_AGUA.exists():
+        png = _convertir_svg_a_png(SELLO_MARCA_AGUA)
+        if png is not None:
+            _marca_agua_cacheada = _preparar_marca_agua(png)
+    return _marca_agua_cacheada
+
+
+def _agregar_marca_agua(parrafo, doc_pr_id, indent_izquierdo, ancho_columna):
+    """Ancla el sello institucional como imagen flotante DEBAJO de la
+    etiqueta de firma (behindDoc="1", pero ya no se superpone al texto:
+    Pablo pidió que el sello quede debajo de cada firma, no encima del
+    detalle de la firma electrónica). `parrafo` es la etiqueta ("FIRMA
+    INTERESADO (A)", etc.), última pieza de ese bloque — el desplazamiento
+    vertical positivo empuja el sello por debajo de esa línea.
+    python-docx no soporta imágenes ancladas nativamente, así que se
+    arma el XML del dibujo a mano.
+
+    `positionH relativeFrom="paragraph"` ignora la sangría del párrafo
+    en la práctica (LibreOffice lo ancla igual para todas las firmas,
+    pegado al margen izquierdo) — por eso se usa `relativeFrom="column"`
+    y se replica a mano el mismo desplazamiento (`indent_izquierdo`) que
+    ya tiene el párrafo, centrando el sello dentro del ancho real de esa
+    columna en vez de dejarlo fijo en el margen."""
+    imagen = _obtener_marca_agua()
+    if imagen is None:
+        return
+    rid, _ = parrafo.part.get_or_add_image(io.BytesIO(imagen))
+    ancho = int(Inches(1.4))
+    alto = int(Inches(1.4))
+    offset_x = int(indent_izquierdo) + max(0, (int(ancho_columna) - ancho) // 2)
+    offset_y = int(Inches(0.15))
+    xml = (
+        '<w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        '<w:drawing xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">'
+        f'<wp:anchor behindDoc="1" distT="0" distB="0" distL="0" distR="0" simplePos="0" '
+        f'locked="0" layoutInCell="1" allowOverlap="1" relativeHeight="{doc_pr_id}">'
+        '<wp:simplePos x="0" y="0"/>'
+        f'<wp:positionH relativeFrom="column"><wp:posOffset>{offset_x}</wp:posOffset></wp:positionH>'
+        f'<wp:positionV relativeFrom="paragraph"><wp:posOffset>{offset_y}</wp:posOffset></wp:positionV>'
+        f'<wp:extent cx="{ancho}" cy="{alto}"/>'
+        '<wp:wrapNone/>'
+        f'<wp:docPr id="{doc_pr_id}" name="MarcaAgua{doc_pr_id}"/>'
+        '<wp:cNvGraphicFramePr/>'
+        '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+        '<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+        '<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        f'<pic:nvPicPr><pic:cNvPr id="0" name="MarcaAgua{doc_pr_id}"/><pic:cNvPicPr/></pic:nvPicPr>'
+        f'<pic:blipFill><a:blip r:embed="{rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
+        f'<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="{ancho}" cy="{alto}"/></a:xfrm>'
+        '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>'
+        '</pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>'
+    )
+    parrafo._p.append(parse_xml(xml))
+
+
+def renderizar_documento_permiso(solicitud):
+    """PDF listo para mostrar/descargar: rellena la plantilla y la
+    convierte. Devuelve None si LibreOffice no está disponible o la
+    conversión falla, para que la vista pueda avisar en vez de romper."""
+    return convertir_docx_a_pdf(rellenar_documento_permiso(solicitud))
+
+
+def generar_documento_permiso(solicitud):
+    """Versión final del formato institucional, guardada una sola vez
+    al momento exacto en que la solicitud queda aprobada (mismo
+    momento que el comprobante de auditoría)."""
+    contenido = renderizar_documento_permiso(solicitud)
+    if contenido is None:
+        return
+    solicitud.documento_permiso.save(
+        f"permiso_{solicitud.pk}.pdf", ContentFile(contenido), save=True
+    )
+
+
+def puede_ver_solicitud(user, solicitud):
+    """Interesado, cualquiera de sus 3 firmantes, o quien gestione
+    solicitudes (RRHH/admin/superuser) — nadie más."""
+    funcionario = getattr(user, "funcionario", None)
+    es_el_interesado = funcionario is not None and solicitud.funcionario_id == funcionario.id
+    es_firmante = funcionario is not None and solicitud.firmas.filter(funcionario_firmante=funcionario).exists()
+    return es_el_interesado or es_firmante or puede_gestionar_solicitudes(user)
+
+
 def actualizar_estado_solicitud(solicitud):
     """El estado de la solicitud es derivado de sus firmas, no se
     setea a mano: todas firmadas -> aprobada; alguna rechazada ->
@@ -205,6 +639,8 @@ def actualizar_estado_solicitud(solicitud):
         solicitud.save(update_fields=["estado"])
         if nuevo_estado == SolicitudPermiso.Estado.APROBADO:
             generar_comprobante_firma(solicitud)
+            if tiene_formato_institucional(solicitud):
+                generar_documento_permiso(solicitud)
 
 
 def es_su_turno(firma):

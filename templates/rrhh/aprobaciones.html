@@ -34,7 +34,7 @@
     <tbody>
       {% for solicitud in solicitudes %}
       <tr>
-        <td>{{ solicitud.funcionario.nombre_completo }}</td>
+        <td><a href="{% url 'rrhh:detalle_solicitud' solicitud.pk %}">{{ solicitud.funcionario.nombre_completo }}</a></td>
         <td>{{ solicitud.get_tipo_display }}</td>
         <td>{{ solicitud.fecha_inicio|date:"d/m/Y" }}</td>
         <td>{{ solicitud.fecha_termino|date:"d/m/Y" }}</td>
@@ -52,7 +52,7 @@
         <td><span class="badge-estado badge-estado--{{ solicitud.estado }}">{{ solicitud.get_estado_display }}</span></td>
         <td class="acciones-fila">
           {% if solicitud.firma_pendiente_mia %}
-          <a href="{% url 'rrhh:firmar_solicitud' solicitud.pk solicitud.firma_pendiente_mia.orden %}" class="btn-enlace">Firmar</a>
+          <a href="{% url 'rrhh:firmar_solicitud' solicitud.pk solicitud.firma_pendiente_mia.orden %}" class="btn btn--terracota">Firmar</a>
           {% else %}
           <a href="{% url 'rrhh:detalle_solicitud' solicitud.pk %}">Ver</a>
           {% endif %}

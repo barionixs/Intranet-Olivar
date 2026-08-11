@@ -1,6 +1,7 @@
 from django import forms
 
 from .models import SolicitudPermiso
+from .utils import dias_disponibles
 
 
 class SolicitudPermisoForm(forms.ModelForm):
@@ -19,12 +20,27 @@ class SolicitudPermisoForm(forms.ModelForm):
             "motivo": "Motivo (opcional)",
         }
 
+    def __init__(self, *args, funcionario=None, **kwargs):
+        self.funcionario = funcionario
+        super().__init__(*args, **kwargs)
+
     def clean(self):
         limpio = super().clean()
         inicio = limpio.get("fecha_inicio")
         termino = limpio.get("fecha_termino")
         if inicio and termino and termino < inicio:
             raise forms.ValidationError("La fecha de término no puede ser anterior a la de inicio.")
+
+        tipo = limpio.get("tipo")
+        dias = limpio.get("dias_solicitados")
+        if self.funcionario and tipo and dias and inicio:
+            disponibles = dias_disponibles(self.funcionario, tipo, inicio.year)
+            if disponibles is not None and dias > disponibles:
+                self.add_error(
+                    "dias_solicitados",
+                    f"Solo te quedan {disponibles} día{'s' if disponibles != 1 else ''} disponibles de "
+                    f"{dict(SolicitudPermiso.Tipo.choices)[tipo]} para {inicio.year}.",
+                )
         return limpio
 
 
