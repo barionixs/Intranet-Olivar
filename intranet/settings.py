@@ -100,16 +100,24 @@ WSGI_APPLICATION = 'intranet.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME'),
-        'USER': env('DB_USER'),
-        'PASSWORD': env('DB_PASSWORD'),
-        'HOST': env('DB_HOST', default='localhost'),
-        'PORT': env('DB_PORT', default='5432'),
+# En Vercel no hay Postgres local: se usa la integración de base de datos
+# (Neon), que inyecta DATABASE_URL automáticamente. En desarrollo local,
+# sin esa variable, se sigue usando el Postgres propio vía DB_*.
+if env.str('DATABASE_URL', default=''):
+    DATABASES = {'default': env.db('DATABASE_URL')}
+    DATABASES['default'].setdefault('OPTIONS', {})
+    DATABASES['default']['OPTIONS']['sslmode'] = 'require'
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('DB_NAME'),
+            'USER': env('DB_USER'),
+            'PASSWORD': env('DB_PASSWORD'),
+            'HOST': env('DB_HOST', default='localhost'),
+            'PORT': env('DB_PORT', default='5432'),
+        }
     }
-}
 
 
 # Password validation
@@ -148,9 +156,30 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+# Requerido para que Vercel corra collectstatic automáticamente en el build.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Almacenamiento de archivos subidos (comprobantes de firma, PDF de
+# permisos, licencias médicas, liquidaciones, etc). En Vercel el
+# filesystem es de solo lectura y no persiste entre invocaciones, así que
+# ahí se usa Vercel Blob en vez de disco local. Se activa solo si existe
+# BLOB_READ_WRITE_TOKEN (variable que agrega Vercel al crear el Blob
+# store); en desarrollo local, sin ese token, se sigue usando el disco.
+STORAGES = {
+    'default': {
+        'BACKEND': (
+            'intranet.storage.VercelBlobStorage'
+            if env.str('BLOB_READ_WRITE_TOKEN', default='')
+            else 'django.core.files.storage.FileSystemStorage'
+        ),
+    },
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
