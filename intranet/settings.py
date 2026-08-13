@@ -57,6 +57,11 @@ AUTH_USER_MODEL = 'usuarios.Usuario'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Sirve los estáticos directamente desde la app (whitenoise), sin
+    # depender de un servidor/CDN aparte -- necesario en hosts como
+    # Render, que corren la app como un proceso normal sin un paso de
+    # build de estáticos separado como el que arma Vercel.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -177,7 +182,15 @@ STORAGES = {
         ),
     },
     'staticfiles': {
-        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        # Con manifest (nombres de archivo con hash, cacheables para
+        # siempre) solo en producción -- exige haber corrido
+        # collectstatic antes, así que en desarrollo local (runserver,
+        # sin ese paso) se sigue usando el storage simple de Django.
+        'BACKEND': (
+            'whitenoise.storage.CompressedManifestStaticFilesStorage'
+            if not DEBUG
+            else 'django.contrib.staticfiles.storage.StaticFilesStorage'
+        ),
     },
 }
 
