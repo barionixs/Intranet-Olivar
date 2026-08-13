@@ -181,6 +181,15 @@ STORAGES = {
     },
 }
 
+# Conversión docx -> PDF del formato institucional de permisos. En Vercel
+# no hay LibreOffice instalado, así que la conversión se manda a un
+# microservicio aparte (Gotenberg, con LibreOffice adentro, desplegado en
+# Render). En desarrollo local, sin GOTENBERG_URL, se sigue usando el
+# LibreOffice instalado en la máquina (ver rrhh/utils.py).
+GOTENBERG_URL = env.str('GOTENBERG_URL', default='')
+GOTENBERG_USER = env.str('GOTENBERG_USER', default='')
+GOTENBERG_PASSWORD = env.str('GOTENBERG_PASSWORD', default='')
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_URL = 'login'

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: 216mm 330mm; margin: 14mm 18mm 14mm 18mm; }
+  body { font-family: 'Times New Roman', Times, serif; font-size: 10.5pt; color: #000000; }
+
+  .cabecera { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
+  .cabecera td { vertical-align: middle; padding: 0; }
+  .cabecera .escudo { width: 60px; }
+  .cabecera .escudo img { width: 46px; }
+  .cabecera .logo { width: 140px; text-align: right; }
+  .cabecera .logo img { width: 120px; }
+  .franja { margin-bottom: 8px; }
+  .franja img { width: 180mm; height: 8px; }
+
+  .encabezado-admin { width: 100%; margin-bottom: 8px; }
+  .encabezado-admin td { font-size: 9.5pt; padding: 0; }
+  .encabezado-admin .decreto { text-align: left; }
+  .encabezado-admin .fecha { text-align: right; }
+
+  h1 { text-align: center; font-size: 12pt; margin: 10px 0 12px 0; text-transform: uppercase; }
+
+  .olivar-fecha { margin: 0 0 8px 0; }
+
+  p.intro { text-align: justify; margin: 0 0 10px 0; }
+
+  table.datos { width: 180mm; border-collapse: collapse; margin-bottom: 8px; }
+  table.datos td { padding: 3px 4px; font-size: 10.5pt; white-space: nowrap; }
+  table.datos td.etiqueta { width: 50mm; font-weight: bold; }
+  table.datos td.valor { width: 130mm; border-bottom: 1px solid #000000; white-space: normal; }
+
+  p.solicito { margin: 4px 0 8px 0; }
+
+  table.combo { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  table.combo td { vertical-align: top; padding: 0; }
+  table.combo td.col-tipos { width: 62%; padding-right: 10px; }
+  table.combo td.col-fechas { width: 38%; }
+
+  table.tipos { width: 100%; border-collapse: collapse; border: 1px solid #000000; }
+  table.tipos td { border: 1px solid #000000; padding: 4px 5px; font-size: 9.5pt; }
+  table.tipos td.etiqueta-tipo { width: 76%; }
+  table.tipos td.valor-tipo { width: 24%; text-align: center; font-weight: bold; }
+
+  table.fechas { width: 100%; border-collapse: collapse; border: 1px solid #000000; }
+  table.fechas td { border: 1px solid #000000; padding: 4px 5px; font-size: 9.5pt; }
+  table.fechas td.etiqueta-fecha { width: 45%; }
+  table.fechas td.valor-fecha { width: 55%; font-weight: bold; }
+
+  table.observaciones { width: 100%; border-collapse: collapse; border: 1px solid #000000; margin-bottom: 20px; }
+  table.observaciones td { padding: 5px; font-size: 9.5pt; }
+  table.observaciones td.etiqueta-obs { font-weight: bold; padding-bottom: 2px; }
+  table.observaciones td.valor-obs { min-height: 28px; padding-top: 0; }
+
+  table.firmas { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  table.firmas td { width: 33.3%; text-align: center; vertical-align: bottom; padding: 0 8px; }
+  .sello-firma { width: 32mm; margin-bottom: 2px; }
+  .bloque-firma-detalle { font-style: italic; font-size: 7.5pt; color: #333333; min-height: 42px; padding: 4px; }
+  .linea-firma { border-top: 1px solid #000000; padding-top: 3px; font-size: 9.5pt; font-weight: bold; letter-spacing: 1px; }
+
+  .pie-verificacion { width: 100%; border-collapse: collapse; margin-top: 14px; }
+  .pie-verificacion td { vertical-align: middle; padding: 0; }
+  .pie-verificacion .qr { width: 60px; }
+  .pie-verificacion .qr img { width: 55px; }
+  .pie-verificacion .texto { font-style: italic; font-size: 6.5pt; color: #333333; padding-left: 10px; }
+
+  .pie-institucional { text-align: center; font-size: 8pt; color: #333333; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+  <table class="cabecera">
+    <tr>
+      <td class="escudo"><img src="{{ escudo_b64 }}" alt="Escudo"></td>
+      <td></td>
+      <td class="logo"><img src="{{ logo_b64 }}" alt="Municipalidad Olivar"></td>
+    </tr>
+  </table>
+  <div class="franja"><img src="{{ franja_b64 }}" alt=""></div>
+
+  <table class="encabezado-admin">
+    <tr>
+      <td class="decreto">DECRETO N° ..................................</td>
+      <td class="fecha">FECHA {{ fecha_doc }}</td>
+    </tr>
+  </table>
+
+  <h1>Solicitud de Permiso Administrativo y Feriado Legal<br>Personal de Planta Municipal</h1>
+
+  <p class="olivar-fecha">OLIVAR, {{ fecha_en_letras }}</p>
+
+  <p class="intro">
+    De conformidad a lo dispuesto en la Ley N° 18.883, sobre Estatuto para funcionarios Municipales,
+    mucho agradeceré a usted, tenga a bien, autorizar lo siguiente:
+  </p>
+
+  <table class="datos">
+    <tr><td class="etiqueta">NOMBRE Y APELLIDO:</td><td class="valor">{{ solicitud.funcionario.nombre_completo }}</td></tr>
+    <tr><td class="etiqueta">RUT N°:</td><td class="valor">{{ solicitud.funcionario.rut }}</td></tr>
+    <tr><td class="etiqueta">GRADO:</td><td class="valor">{{ grado }}</td></tr>
+    <tr><td class="etiqueta">CARGO QUE DESEMPEÑA:</td><td class="valor">{{ solicitud.funcionario.get_cargo_display }} &middot; {{ solicitud.funcionario.departamento.nombre }}</td></tr>
+  </table>
+
+  <p class="solicito">Los días indicados, los solicito a contar:</p>
+
+  <table class="combo">
+    <tr>
+      <td class="col-tipos">
+        <table class="tipos">
+          <tr>
+            <td class="etiqueta-tipo">Permiso con sueldo (Art. 108) N° de Días</td>
+            <td class="valor-tipo">{% if solicitud.tipo == "administrativo" %}{{ solicitud.dias_solicitados }}{% endif %}</td>
+          </tr>
+          <tr>
+            <td class="etiqueta-tipo">Permiso sin sueldo (Art. 109) N° de Días</td>
+            <td class="valor-tipo">{% if solicitud.tipo == "sin_goce" %}{{ solicitud.dias_solicitados }}{% endif %}</td>
+          </tr>
+          <tr>
+            <td class="etiqueta-tipo">Feriado Legal (Arts. 101, 102 y 103) N° de Días</td>
+            <td class="valor-tipo">{% if solicitud.tipo == "vacaciones" %}{{ solicitud.dias_solicitados }}{% endif %}</td>
+          </tr>
+        </table>
+      </td>
+      <td class="col-fechas">
+        <table class="fechas">
+          <tr><td class="etiqueta-fecha">Desde el:</td><td class="valor-fecha">{{ solicitud.fecha_inicio|date:"d/m/Y" }}</td></tr>
+          <tr><td class="etiqueta-fecha">Hasta el:</td><td class="valor-fecha">{{ solicitud.fecha_termino|date:"d/m/Y" }}</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <table class="observaciones">
+    <tr><td class="etiqueta-obs">OBSERVACIONES:</td></tr>
+    <tr><td class="valor-obs">{{ solicitud.motivo }}</td></tr>
+  </table>
+
+  <table class="firmas">
+    <tr>
+      <td>
+        {% if firma_interesado.estado == 'firmado' %}<img class="sello-firma" src="{{ sello_b64 }}" alt="">{% endif %}
+        <div class="bloque-firma-detalle">
+          {% for linea in texto_firma_interesado %}<div>{{ linea }}</div>{% endfor %}
+        </div>
+        <div class="linea-firma">FIRMA INTERESADO (A)</div>
+      </td>
+      <td>
+        {% if firma_jefatura.estado == 'firmado' %}<img class="sello-firma" src="{{ sello_b64 }}" alt="">{% endif %}
+        <div class="bloque-firma-detalle">
+          {% for linea in texto_firma_jefatura %}<div>{{ linea }}</div>{% endfor %}
+        </div>
+        <div class="linea-firma">V° B° JEFE DIRECTO</div>
+      </td>
+      <td>
+        {% if firma_alcaldesa.estado == 'firmado' %}<img class="sello-firma" src="{{ sello_b64 }}" alt="">{% endif %}
+        <div class="bloque-firma-detalle">
+          {% for linea in texto_firma_alcaldesa %}<div>{{ linea }}</div>{% endfor %}
+        </div>
+        <div class="linea-firma">A L C A L D E S A</div>
+      </td>
+    </tr>
+  </table>
+
+  <table class="pie-verificacion">
+    <tr>
+      <td class="qr"><img src="{{ qr_b64 }}" alt="QR verificación"></td>
+      <td class="texto">
+        Firma electrónica simple conforme a la Ley N.º 19.799 sobre documentos electrónicos, firma
+        electrónica y servicios de certificación de dicha firma. Escanee el código para verificar la
+        autenticidad de este documento y el estado de sus firmas, o ingrese el código
+        {{ codigo_verificacion }} en la Intranet, sección "Verificar firma".
+      </td>
+    </tr>
+  </table>
+
+  <p class="pie-institucional">Ilustre Municipalidad de Olivar &ndash; Teléfono de Contacto (72) 235 8370 &ndash; (72) 235 8300 - Plaza Esmeralda S/N, Olivar</p>
+
+</body>
+</html>

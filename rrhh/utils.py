@@ -21,7 +21,6 @@ from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import qn
 from docx.shared import Inches, Mm, Pt
 from docx.text.paragraph import Paragraph
-from PIL import Image
 from xhtml2pdf import pisa
 
 from .models import CargoUnico, FichaLaboral, FirmaSolicitud, SolicitudPermiso
@@ -211,11 +210,11 @@ def generar_comprobante_firma(solicitud):
 # documento se agrega el detalle de la firma electrónica simple de esa
 # persona (nombre, RUT, fecha/hora y hash) en vez de una firma manuscrita.
 # El .docx rellenado se convierte a PDF con LibreOffice en modo headless
-# (instalado en el servidor para este fin) para poder verlo/descargarlo
-# como los demás documentos del sistema.
+# para poder verlo/descargarlo como los demás documentos del sistema — en
+# local, con el LibreOffice instalado en la máquina; en Vercel, mandando
+# la conversión a Gotenberg (ver convertir_docx_a_pdf / GOTENBERG_URL).
 
 PLANTILLA_PERMISO_ADMINISTRATIVO = settings.BASE_DIR / "plantillas_word" / "PERMISOS ADMINISTRATIVOS.docx"
-SELLO_MARCA_AGUA = settings.BASE_DIR / "plantillas_word" / "Sello_Informatica_Servicios_Generales.svg"
 
 TIPOS_CON_FORMATO_INSTITUCIONAL = {
     SolicitudPermiso.Tipo.ADMINISTRATIVO,
@@ -455,11 +454,40 @@ def _ruta_libreoffice():
     return None
 
 
+def _convertir_via_gotenberg(contenido_docx):
+    """Convierte llamando a un Gotenberg (LibreOffice en Docker) desplegado
+    aparte — es la vía que se usa en Vercel, donde no hay LibreOffice
+    instalado. Se activa solo si GOTENBERG_URL está configurado."""
+    import requests
+
+    url = settings.GOTENBERG_URL.rstrip("/") + "/forms/libreoffice/convert/document"
+    auth = None
+    if settings.GOTENBERG_USER:
+        auth = (settings.GOTENBERG_USER, settings.GOTENBERG_PASSWORD)
+    try:
+        respuesta = requests.post(
+            url,
+            files={"files": ("documento.docx", contenido_docx, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+            auth=auth,
+            # El servicio gratuito puede estar "dormido" y tardar en despertar.
+            timeout=90,
+        )
+    except requests.RequestException:
+        return None
+    if respuesta.status_code != 200:
+        return None
+    return respuesta.content
+
+
 def convertir_docx_a_pdf(contenido_docx):
-    """Convierte con LibreOffice en modo headless, en un perfil de
-    usuario temporal propio por llamada — así conversiones simultáneas
-    (dos personas viendo la vista previa a la vez) no compiten por el
-    mismo perfil de LibreOffice y se bloqueen entre sí."""
+    """Convierte a PDF: usa Gotenberg (remoto) si GOTENBERG_URL está
+    configurado, o LibreOffice local en modo headless si no — cada
+    llamada local usa un perfil de usuario propio, así conversiones
+    simultáneas (dos personas viendo la vista previa a la vez) no
+    compiten por el mismo perfil de LibreOffice y se bloqueen entre sí."""
+    if settings.GOTENBERG_URL:
+        return _convertir_via_gotenberg(contenido_docx)
+
     soffice = _ruta_libreoffice()
     if not soffice:
         return None
@@ -486,63 +514,22 @@ def convertir_docx_a_pdf(contenido_docx):
 
 
 # --- Marca de agua (sello institucional) sobre cada firma estampada --------
+# El sello (Sello_Informatica_Servicios_Generales.svg) se pre-convirtió UNA
+# sola vez a PNG semi-transparente, con LibreOffice local, y quedó guardado
+# en static/img/formato_permiso/sello_marca_agua.png — así no hace falta
+# convertir nada (ni local ni contra Gotenberg) para estampar cada firma.
 
 _marca_agua_cacheada = None
 
 
-def _convertir_svg_a_png(ruta_svg):
-    soffice = _ruta_libreoffice()
-    if not soffice:
-        return None
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_path = Path(tmp)
-        perfil = (tmp_path / "perfil_lo").as_posix()
-        try:
-            resultado = subprocess.run(
-                [
-                    soffice, "--headless", "--norestore",
-                    f"-env:UserInstallation=file:///{perfil}",
-                    "--convert-to", "png:draw_png_Export", "--outdir", str(tmp_path), str(ruta_svg),
-                ],
-                capture_output=True, timeout=60,
-            )
-        except (subprocess.TimeoutExpired, OSError):
-            return None
-        png_path = tmp_path / (Path(ruta_svg).stem + ".png")
-        if resultado.returncode != 0 or not png_path.exists():
-            return None
-        return png_path.read_bytes()
-
-
-def _preparar_marca_agua(imagen_png_bytes, opacidad=0.16):
-    """El sello se exporta con fondo blanco opaco (LibreOffice no
-    conserva transparencia de SVG al exportar a PNG desde Draw): se
-    reconstruye el canal alfa a partir de qué tan oscuro es cada píxel
-    (el trazo negro queda con la opacidad pedida, el fondo blanco queda
-    transparente), para que funcione como marca de agua y no como un
-    sello opaco que tape el texto de la firma."""
-    imagen = Image.open(io.BytesIO(imagen_png_bytes)).convert("RGBA")
-    gris = imagen.convert("L")
-    alpha_max = int(255 * opacidad)
-    alpha = gris.point(lambda l: int((255 - l) / 255 * alpha_max))
-    resultado = Image.new("RGBA", imagen.size, (0, 0, 0, 0))
-    resultado.putalpha(alpha)
-    resultado = resultado.resize((500, 500), Image.LANCZOS)
-    buffer = io.BytesIO()
-    resultado.save(buffer, format="PNG")
-    return buffer.getvalue()
-
-
 def _obtener_marca_agua():
-    """Se genera una sola vez por proceso (conversión SVG→PNG vía
-    LibreOffice de por medio): el sello institucional no cambia entre
-    solicitudes, así que no vale la pena volver a convertirlo en cada
-    documento generado."""
+    """Lee el PNG del sello una sola vez por proceso y lo deja cacheado
+    en memoria — no cambia entre solicitudes."""
     global _marca_agua_cacheada
-    if _marca_agua_cacheada is None and SELLO_MARCA_AGUA.exists():
-        png = _convertir_svg_a_png(SELLO_MARCA_AGUA)
-        if png is not None:
-            _marca_agua_cacheada = _preparar_marca_agua(png)
+    if _marca_agua_cacheada is None:
+        ruta = settings.BASE_DIR / "static" / "img" / "formato_permiso" / "sello_marca_agua.png"
+        if ruta.exists():
+            _marca_agua_cacheada = ruta.read_bytes()
     return _marca_agua_cacheada
 
 
