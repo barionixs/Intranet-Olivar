@@ -427,13 +427,13 @@ def rellenar_documento_permiso(solicitud):
         if info and anterior is not None:
             rol, indent_izq, indent_der = info
             firma = firmas.get(rol)
-            _insertar_parrafo_antes(
+            nuevo_parrafo = _insertar_parrafo_antes(
                 anterior, _texto_firma_electronica(firma), indent_izq, indent_der
             )
             if firma is not None and firma.estado == FirmaSolicitud.Estado.FIRMADO:
                 id_marca_agua += 1
                 ancho_columna = ancho_texto - indent_izq - indent_der
-                _agregar_marca_agua(parrafo, id_marca_agua, indent_izq, ancho_columna)
+                _agregar_marca_agua(nuevo_parrafo, id_marca_agua, indent_izq, ancho_columna)
         anterior = parrafo
 
     _agregar_pie_verificacion(documento, solicitud)
@@ -534,14 +534,14 @@ def _obtener_marca_agua():
 
 
 def _agregar_marca_agua(parrafo, doc_pr_id, indent_izquierdo, ancho_columna):
-    """Ancla el sello institucional como imagen flotante DEBAJO de la
-    etiqueta de firma (behindDoc="1", pero ya no se superpone al texto:
-    Pablo pidió que el sello quede debajo de cada firma, no encima del
-    detalle de la firma electrónica). `parrafo` es la etiqueta ("FIRMA
-    INTERESADO (A)", etc.), última pieza de ese bloque — el desplazamiento
-    vertical positivo empuja el sello por debajo de esa línea.
-    python-docx no soporta imágenes ancladas nativamente, así que se
-    arma el XML del dibujo a mano.
+    """Ancla el sello institucional como imagen flotante ARRIBA del
+    texto de la firma (behindDoc="1", así no tapa la lectura). `parrafo`
+    es el bloque de texto ("Firmado por: ...", etc.) recién insertado
+    para esa firma — el desplazamiento vertical negativo empuja el
+    sello hacia arriba, para que quede sobre esos datos en vez de
+    extenderse hacia abajo, donde se superponía con el bloque del
+    siguiente firmante. python-docx no soporta imágenes ancladas
+    nativamente, así que se arma el XML del dibujo a mano.
 
     `positionH relativeFrom="paragraph"` ignora la sangría del párrafo
     en la práctica (LibreOffice lo ancla igual para todas las firmas,
@@ -556,7 +556,7 @@ def _agregar_marca_agua(parrafo, doc_pr_id, indent_izquierdo, ancho_columna):
     ancho = int(Inches(1.4))
     alto = int(Inches(1.4))
     offset_x = int(indent_izquierdo) + max(0, (int(ancho_columna) - ancho) // 2)
-    offset_y = int(Inches(0.15))
+    offset_y = -(alto + int(Inches(0.1)))
     xml = (
         '<w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
         '<w:drawing xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">'
