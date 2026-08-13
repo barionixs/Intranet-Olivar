@@ -1,0 +1,13 @@
+Hola {{ firma.funcionario_firmante.nombre_completo }},
+
+Tienes pendiente firmar el siguiente paso de una solicitud de permiso:
+
+Solicitante: {{ solicitud.funcionario.nombre_completo }}
+Tipo: {{ solicitud.get_tipo_display }}
+Fechas: {{ solicitud.fecha_inicio|date:"d/m/Y" }} al {{ solicitud.fecha_termino|date:"d/m/Y" }}
+
+Para revisarla y firmarla, ingresa a:
+{{ url }}
+
+Ilustre Municipalidad de Olivar
+Intranet Municipal

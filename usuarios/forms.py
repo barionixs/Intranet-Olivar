@@ -121,4 +121,9 @@ class UsuarioEdicionForm(forms.ModelForm):
             usuario.debe_cambiar_password = True
         if commit:
             usuario.save()
+            # Funcionario.save() empuja su propio email hacia Usuario,
+            # pero no al revés — sin esto, editar el correo acá lo deja
+            # desincronizado del Funcionario vinculado (y de las
+            # notificaciones de firma, que leen Funcionario.email).
+            Funcionario.objects.filter(usuario=usuario).update(email=usuario.email)
         return usuario

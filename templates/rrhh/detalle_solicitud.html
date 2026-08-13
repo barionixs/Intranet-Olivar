@@ -68,6 +68,9 @@
         {% if firma.comentario %}
         <tr><td></td><td colspan="5" class="ayuda">"{{ firma.comentario }}"</td></tr>
         {% endif %}
+        {% if firma.notificado_en %}
+        <tr><td></td><td colspan="5" class="ayuda">Se notificó por correo a {{ firma.funcionario_firmante }} el {{ firma.notificado_en|date:"d/m/Y H:i" }}.</td></tr>
+        {% endif %}
         {% endfor %}
       </tbody>
     </table>

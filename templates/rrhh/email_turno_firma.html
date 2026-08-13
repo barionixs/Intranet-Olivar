@@ -1,0 +1,53 @@
+<!-- Email HTML clásico: todo con tablas y estilos inline, nada de <style>
+     externo ni CSS moderno (flexbox/grid) -- Outlook de escritorio usa el
+     motor de Word para renderizar correos y no soporta casi nada de eso. -->
+<div style="background:#F5F1EA;padding:24px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td align="center">
+<table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0" style="background:#FFFFFF;border:1px solid #E7DFD2;">
+<tr><td>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td width="33%" style="background:#D76B53;font-size:1px;line-height:6px;">&nbsp;</td>
+    <td width="34%" style="background:#98A437;font-size:1px;line-height:6px;">&nbsp;</td>
+    <td width="33%" style="background:#914640;font-size:1px;line-height:6px;">&nbsp;</td>
+  </tr></table>
+</td></tr>
+<tr><td style="padding:28px 32px 8px 32px;text-align:center;">
+  <img src="cid:logo_olivar" alt="Municipalidad de Olivar" width="64" style="display:block;margin:0 auto 12px auto;border:0;">
+  <div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;color:#521709;font-weight:bold;">Intranet Municipal</div>
+</td></tr>
+<tr><td style="padding:8px 32px 8px 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#2E2A24;line-height:1.6;">
+  <p style="margin:0 0 12px 0;">Hola {{ firma.funcionario_firmante.nombre_completo }},</p>
+  <p style="margin:0 0 16px 0;">Tienes pendiente firmar el siguiente paso de una solicitud de permiso:</p>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:14px;margin-bottom:20px;">
+    <tr>
+      <td style="padding:5px 0;color:#7A6F5D;width:110px;">Solicitante</td>
+      <td style="padding:5px 0;color:#2E2A24;font-weight:bold;">{{ solicitud.funcionario.nombre_completo }}</td>
+    </tr>
+    <tr>
+      <td style="padding:5px 0;color:#7A6F5D;">Tipo</td>
+      <td style="padding:5px 0;color:#2E2A24;font-weight:bold;">{{ solicitud.get_tipo_display }}</td>
+    </tr>
+    <tr>
+      <td style="padding:5px 0;color:#7A6F5D;">Fechas</td>
+      <td style="padding:5px 0;color:#2E2A24;font-weight:bold;">{{ solicitud.fecha_inicio|date:"d/m/Y" }} al {{ solicitud.fecha_termino|date:"d/m/Y" }}</td>
+    </tr>
+  </table>
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
+    <tr><td style="background:#98A437;">
+      <a href="{{ url }}" style="display:inline-block;padding:12px 26px;color:#FFFFFF;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;text-decoration:none;">Revisar y firmar</a>
+    </td></tr>
+  </table>
+  <p style="margin:0 0 20px 0;font-size:12px;color:#9C9080;">Si el botón no funciona, copia este link en tu navegador:<br>
+    <a href="{{ url }}" style="color:#914640;">{{ url }}</a>
+  </p>
+</td></tr>
+<tr><td style="background:#FAF7F2;border-top:1px solid #E7DFD2;padding:18px 32px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#7A6F5D;line-height:1.6;">
+  <strong style="color:#521709;">Ilustre Municipalidad de Olivar</strong><br>
+  Plaza Esmeralda S/N, Olivar &middot; Tel. (72) 235 8370 / (72) 235 8300<br>
+  Correo automático de la Intranet Municipal &mdash; no respondas a esta dirección.
+</td></tr>
+</table>
+</td></tr>
+</table>
+</div>

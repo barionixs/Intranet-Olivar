@@ -190,6 +190,37 @@ GOTENBERG_URL = env.str('GOTENBERG_URL', default='')
 GOTENBERG_USER = env.str('GOTENBERG_USER', default='')
 GOTENBERG_PASSWORD = env.str('GOTENBERG_PASSWORD', default='')
 
+# Notificación por correo cuando le toca firmar a alguien (ver
+# rrhh.utils.notificar_turno_firma). Tres modos, en este orden de
+# prioridad:
+# 1. Microsoft Graph API (MS_GRAPH_CLIENT_ID configurado) -- necesario
+#    para cuentas @muniolivar.cl: el tenant de Microsoft 365 tiene
+#    "Security Defaults" activado, que bloquea SMTP básico (usuario +
+#    contraseña) sin importar la config de la cuenta individual. Envía
+#    autenticado con OAuth (client credentials), no por SMTP.
+# 2. SMTP normal (EMAIL_HOST_USER configurado) -- sirve para Gmail u
+#    otro proveedor sin esa restricción.
+# 3. Consola (por defecto, sin nada configurado) -- desarrollo local:
+#    los correos se imprimen en la consola en vez de enviarse de verdad.
+if env.str('MS_GRAPH_CLIENT_ID', default=''):
+    EMAIL_BACKEND = 'intranet.email_backend.MicrosoftGraphEmailBackend'
+    MS_GRAPH_TENANT_ID = env.str('MS_GRAPH_TENANT_ID')
+    MS_GRAPH_CLIENT_ID = env.str('MS_GRAPH_CLIENT_ID')
+    MS_GRAPH_CLIENT_SECRET = env.str('MS_GRAPH_CLIENT_SECRET')
+    MS_GRAPH_SENDER = env.str('MS_GRAPH_SENDER')
+    DEFAULT_FROM_EMAIL = MS_GRAPH_SENDER
+elif env.str('EMAIL_HOST_USER', default=''):
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = env.str('EMAIL_HOST', default='smtp.gmail.com')
+    EMAIL_PORT = env.int('EMAIL_PORT', default=587)
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = env.str('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = env.str('EMAIL_HOST_PASSWORD', default='')
+    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL = 'intranet@olivar.local'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_URL = 'login'

@@ -169,6 +169,13 @@ class FirmaSolicitud(models.Model):
         "cuándo y desde qué IP. Distinto para cada una de las firmas, aunque compartan solicitud.",
     )
     comentario = models.TextField(blank=True)
+    notificado_en = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Cuándo se le avisó por correo a este firmante que le tocaba su turno "
+        "(ver rrhh.utils.notificar_turno_firma) -- respaldo ante un reclamo de que el "
+        "aviso nunca llegó. Queda vacío si el firmante no tiene correo cargado, o si el "
+        "envío falló.",
+    )
 
     class Meta:
         ordering = ["solicitud", "orden"]

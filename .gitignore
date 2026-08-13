@@ -13,3 +13,5 @@ data_privada/
 
 # Respaldos de base de datos: nunca al repo
 respaldos_bd/
+
+.vercel

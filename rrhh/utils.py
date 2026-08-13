@@ -4,18 +4,22 @@ días administrativos/vacaciones (cupo anual fijo, ver CUPO_DIAS_ANUAL)."""
 
 import hashlib
 import io
+import logging
 import subprocess
 import tempfile
 from datetime import date
+from email.mime.image import MIMEImage
 from pathlib import Path
 
 import qrcode
 from django.conf import settings
 from django.core.files.base import ContentFile
+from django.core.mail import EmailMultiAlternatives
 from django.db.models import Sum
 from django.template.defaultfilters import date as date_filter
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import timezone
 from docx import Document
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import qn
@@ -24,6 +28,8 @@ from docx.text.paragraph import Paragraph
 from xhtml2pdf import pisa
 
 from .models import CargoUnico, FichaLaboral, FirmaSolicitud, SolicitudPermiso
+
+logger = logging.getLogger(__name__)
 
 
 def calcular_antiguedad(fecha_ingreso, hoy=None):
@@ -610,11 +616,53 @@ def puede_ver_solicitud(user, solicitud):
     return es_el_interesado or es_firmante or puede_gestionar_solicitudes(user)
 
 
+LOGO_EMAIL = settings.BASE_DIR / "static" / "img" / "formato_permiso" / "logo.png"
+
+
+def notificar_turno_firma(firma):
+    """Avisa por correo a quien le toca firmar un paso, con el logo
+    institucional embebido (Content-ID, no un link a imagen externa:
+    así se ve igual en cualquier cliente de correo, sin depender de
+    que la intranet sea alcanzable desde afuera de la red local). Si
+    el funcionario no tiene correo cargado, o el envío falla (SMTP/
+    Graph mal configurado, sin conexión, etc.), no interrumpe el
+    flujo de firmas: la solicitud sigue firmable desde la app igual,
+    solo queda sin notificar."""
+    funcionario = firma.funcionario_firmante
+    if not funcionario or not funcionario.email:
+        return
+    url = settings.SITE_URL + reverse("rrhh:detalle_solicitud", args=[firma.solicitud_id])
+    contexto = {"firma": firma, "solicitud": firma.solicitud, "url": url}
+    texto = render_to_string("rrhh/email_turno_firma.txt", contexto)
+    html = render_to_string("rrhh/email_turno_firma.html", contexto)
+    try:
+        mensaje = EmailMultiAlternatives(
+            subject="Tienes una solicitud de permiso pendiente de firma",
+            body=texto,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[funcionario.email],
+        )
+        mensaje.attach_alternative(html, "text/html")
+        mensaje.mixed_subtype = "related"
+        if LOGO_EMAIL.exists():
+            imagen = MIMEImage(LOGO_EMAIL.read_bytes())
+            imagen.add_header("Content-ID", "<logo_olivar>")
+            imagen.add_header("Content-Disposition", "inline", filename="logo.png")
+            mensaje.attach(imagen)
+        mensaje.send()
+        firma.notificado_en = timezone.now()
+        firma.save(update_fields=["notificado_en"])
+    except Exception:
+        logger.exception(
+            "No se pudo enviar el correo de notificación de firma (firma id=%s)", firma.pk
+        )
+
+
 def actualizar_estado_solicitud(solicitud):
     """El estado de la solicitud es derivado de sus firmas, no se
     setea a mano: todas firmadas -> aprobada; alguna rechazada ->
     rechazada; si no, sigue pendiente."""
-    firmas = list(solicitud.firmas.all())
+    firmas = list(solicitud.firmas.select_related("funcionario_firmante").order_by("orden"))
     if any(f.estado == FirmaSolicitud.Estado.RECHAZADO for f in firmas):
         nuevo_estado = SolicitudPermiso.Estado.RECHAZADO
     elif firmas and all(f.estado == FirmaSolicitud.Estado.FIRMADO for f in firmas):
@@ -628,6 +676,15 @@ def actualizar_estado_solicitud(solicitud):
             generar_comprobante_firma(solicitud)
             if tiene_formato_institucional(solicitud):
                 generar_documento_permiso(solicitud)
+    if nuevo_estado == SolicitudPermiso.Estado.PENDIENTE:
+        # El interesado (orden 1) no se notifica por correo: ya queda
+        # avisado en pantalla al momento de crear la solicitud. Desde
+        # el orden 2 en adelante sí, porque el turno pasa a otra
+        # persona que recién ahora puede actuar.
+        siguiente = next((f for f in firmas if f.estado == FirmaSolicitud.Estado.PENDIENTE), None)
+        if siguiente and siguiente.orden > 1:
+            siguiente.solicitud = solicitud
+            notificar_turno_firma(siguiente)
 
 
 def es_su_turno(firma):
