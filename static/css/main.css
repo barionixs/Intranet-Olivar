@@ -348,6 +348,62 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
 .alerta--warning { background: var(--advertencia-fondo); color: var(--advertencia-texto); }
 .alerta--info { background: #EAF1F4; color: #2E5F70; }
 
+/* Toasts: mensajes de Django (messages framework) como notificaciones
+   emergentes en la esquina, no como un bloque fijo que empuja el
+   contenido -- se autodestruyen a los 5s (ver script en base.html) o
+   al cerrarlos a mano. */
+.toasts {
+  position: fixed;
+  top: 5.25rem;
+  right: 1.5rem;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 380px;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 8px;
+  padding: 0.85rem 1.05rem;
+  font-size: 0.92rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  animation: toast-entrada 0.25s ease-out;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast--saliendo { opacity: 0; transform: translateX(24px); }
+
+.toast--success { background: #EEF3E6; color: var(--exito); }
+.toast--error { background: var(--peligro-fondo); color: var(--peligro); }
+.toast--warning { background: var(--advertencia-fondo); color: var(--advertencia-texto); }
+.toast--info { background: #EAF1F4; color: #2E5F70; }
+
+.toast__cerrar {
+  background: none;
+  border: none;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.6;
+  padding: 0;
+}
+.toast__cerrar:hover { opacity: 1; }
+
+@keyframes toast-entrada {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 640px) {
+  .toasts { left: 1rem; right: 1rem; max-width: none; }
+}
+
 .pagina-login {
   min-height: calc(100vh - 6px);
   display: flex;

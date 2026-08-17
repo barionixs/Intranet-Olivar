@@ -42,16 +42,30 @@
   {% endif %}
 
   <main class="contenedor{% block contenedor_extra_class %}{% endblock %}">
-    {% if messages %}
-      {% for message in messages %}
-        <div class="alerta alerta--{{ message.tags }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
     <div class="diseno-con-barra">
       <div class="contenido-principal">
         {% block contenido %}{% endblock %}
       </div><aside class="barra-lateral">{% block barra_lateral %}{% endblock %}</aside>
     </div>
   </main>
+
+  {% if messages %}
+  <div class="toasts">
+    {% for message in messages %}
+    <div class="toast toast--{{ message.tags }}" role="status">
+      <span>{{ message }}</span>
+      <button type="button" class="toast__cerrar" aria-label="Cerrar" onclick="this.closest('.toast').remove()">&times;</button>
+    </div>
+    {% endfor %}
+  </div>
+  <script>
+    document.querySelectorAll('.toast').forEach(function (toast) {
+      setTimeout(function () {
+        toast.classList.add('toast--saliendo');
+        setTimeout(function () { toast.remove(); }, 300);
+      }, 5000);
+    });
+  </script>
+  {% endif %}
 </body>
 </html>
